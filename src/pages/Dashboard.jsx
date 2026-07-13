@@ -43,20 +43,26 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="font-heading text-2xl font-semibold mb-6">Areas of Responsibility</h1>
-      <div
-        className="grid gap-5"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}
-      >
-        {visibleAreas.map((area) => (
-          <AreaCard
-            key={area.id}
-            area={area}
-            productCount={products.filter((p) => p.parent_area_id === area.id).length}
-            onExpand={() => handleExpand(area)}
-            stakeholderIds={products.filter((p) => p.parent_area_id === area.id).flatMap((p) => p.stakeholder_ids || [])}
-          />
-        ))}
-      </div>
+      {visibleAreas.length === 0 ? (
+        <div className="text-center py-20 text-muted-foreground">
+          <p className="text-sm">No areas found. Click "Create New" to add your first Area of Responsibility.</p>
+        </div>
+      ) : (
+        <div
+          className="grid gap-5"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}
+        >
+          {visibleAreas.map((area) => (
+            <AreaCard
+              key={area.id}
+              area={area}
+              productCount={products.filter((p) => p.parent_area_id === area.id).length}
+              onExpand={() => handleExpand(area)}
+              stakeholderIds={products.filter((p) => p.parent_area_id === area.id).flatMap((p) => p.stakeholder_ids || [])}
+            />
+          ))}
+        </div>
+      )}
       <CreateModal />
       {expandedArea && (
         <AreaModal area={expandedArea} onClose={handleClose} />

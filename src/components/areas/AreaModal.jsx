@@ -38,16 +38,22 @@ export default function AreaModal({ area, onClose }) {
           <h2 className="font-heading text-xl font-semibold">{area.title}</h2>
           <button onClick={onClose}><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
-          <DndContext onDragEnd={handleDragEnd}>
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+        {products.length === 0 && standaloneProjects.length === 0 ? (
+          <div className="text-center py-20 text-muted-foreground">
+            <p className="text-sm">No products or projects yet. Click "Create New" to add one to this area.</p>
+          </div>
+        ) : (
+          <div className="p-6 grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
+            <DndContext onDragEnd={handleDragEnd}>
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </DndContext>
+            {standaloneProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
             ))}
-          </DndContext>
-          {standaloneProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
+          </div>
+        )}
       </div>
     </Portal>
   );

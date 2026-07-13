@@ -16,6 +16,11 @@ const STATUS_META = [
 
 export default function StatisticsChart() {
   const { data: tasks = [] } = useAllTasks();
+
+  if (tasks.length === 0) {
+    return <p className="text-xs text-muted-foreground">No task data available</p>;
+  }
+
   const total = tasks.length || 1;
   const rows = STATUS_META.map((meta) => ({
     ...meta,

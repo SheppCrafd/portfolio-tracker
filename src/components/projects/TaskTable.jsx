@@ -97,6 +97,11 @@ export default function TaskTable({ project }) {
         </tr>
       </thead>
       <tbody>
+        {sortedTasks.length === 0 && (
+          <tr>
+            <td className="p-2 text-muted-foreground text-center" colSpan={8}>No active tasks</td>
+          </tr>
+        )}
         {sortedTasks.slice(0, MAX_ROWS).map((task) => (
           <tr key={task.id} className={`border-b border-border last:border-0 ${isDimmed(task) ? "opacity-30" : ""}`}>
             <td className="p-2 min-w-0 max-w-[220px]">

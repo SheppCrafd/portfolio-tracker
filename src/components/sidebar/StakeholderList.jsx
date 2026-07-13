@@ -42,6 +42,9 @@ export default function StakeholderList() {
         Add Stakeholder
       </button>
 
+      {departments.length === 0 && (
+        <p className="text-xs text-muted-foreground">No stakeholders added.</p>
+      )}
       <Accordion type="multiple" className="w-full">
         {departments.map((dept) => (
           <AccordionItem key={dept} value={dept}>
