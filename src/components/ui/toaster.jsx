@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/toast";
 
 export function Toaster() {
-  const { toasts } = useToast();
+  const { toasts, remove } = useToast();
 
   return (
     <ToastProvider>
@@ -23,11 +23,12 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose />
+            {/* wire the close button to immediately remove and clear timeouts */}
+            <ToastClose onClick={() => remove(id)} />
           </Toast>
         );
       })}
       <ToastViewport />
     </ToastProvider>
   );
-} 
+}
