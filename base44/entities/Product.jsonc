@@ -1,0 +1,19 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "parent_area_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "custom_data": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "parent_area_id",
+    "title"
+  ]
+}

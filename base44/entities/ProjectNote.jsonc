@@ -1,0 +1,24 @@
+{
+  "name": "ProjectNote",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "RISK",
+        "QUESTION"
+      ]
+    },
+    "content": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "type",
+    "content"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "parent_product_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false
+    },
+    "deleted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "custom_data": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "parent_product_id",
+    "title"
+  ]
+}
