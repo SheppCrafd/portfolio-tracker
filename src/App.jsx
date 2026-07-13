@@ -6,6 +6,9 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
+import { HighlightProvider } from '@/lib/HighlightContext';
+import AppShell from '@/components/layout/AppShell';
+import Dashboard from '@/pages/Dashboard';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -33,10 +36,13 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
-    <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+    <AppShell>
+      <Routes>
+        {/* Add your page Route elements here */}
+        <Route path="/" element={<Dashboard />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </AppShell>
   );
 };
 
@@ -46,11 +52,13 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
+        <HighlightProvider>
+          <Router>
+            <ScrollToTop />
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </HighlightProvider>
       </QueryClientProvider>
     </AuthProvider>
   )
