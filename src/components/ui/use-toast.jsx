@@ -141,6 +141,12 @@ function toast({ ...props }) {
   };
 }
 
+// New helper: immediately remove a toast and clear any pending timeout.
+export function removeToast(toastId) {
+  _clearFromRemoveQueue(toastId);
+  dispatch({ type: actionTypes.REMOVE_TOAST, toastId });
+}
+
 function useToast() {
   const [state, setState] = useState(memoryState);
 
@@ -158,7 +164,9 @@ function useToast() {
     ...state,
     toast,
     dismiss: (toastId) => dispatch({ type: actionTypes.DISMISS_TOAST, toastId }),
+    // convenience wrapper for consumers to immediately remove and clear timeouts
+    remove: (toastId) => removeToast(toastId),
   };
 }
 
-export { useToast, toast }; 
+export { useToast, toast };
