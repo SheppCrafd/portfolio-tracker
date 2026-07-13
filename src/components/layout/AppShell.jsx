@@ -1,5 +1,6 @@
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import ChatBox from "@/components/ai/ChatBox";
 
 // Locks the app into a CSS grid-template-areas layout: header spans the top,
 // main content sits left, sidebar sits right.
@@ -22,6 +23,7 @@ export default function AppShell({ children }) {
       <aside style={{ gridArea: "sidebar" }} className="overflow-y-auto border-l border-border bg-card p-4">
         <Sidebar />
       </aside>
+      <ChatBox />
     </div>
   );
 }

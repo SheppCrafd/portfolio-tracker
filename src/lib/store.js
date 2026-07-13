@@ -42,8 +42,35 @@ export const useAppStore = create((set) => ({
   addTask: (task) =>
     set((state) => ({ tasks: [...state.tasks, task] })),
 
-  restoreArchivedItem: (itemId) =>
-    set((state) => ({
-      archivedItems: state.archivedItems.filter((i) => i.id !== itemId),
-    })),
+  // Mocks "hydration": removes the item from the archive array and pushes a
+  // matching record back into the active projects/products arrays.
+  restoreArchivedItem: (item) =>
+    set((state) => {
+      const archivedItems = state.archivedItems.filter((i) => i.id !== item.id);
+
+      if (item.type === "project") {
+        return {
+          archivedItems,
+          projects: [
+            ...state.projects,
+            { id: item.id, productId: item.productId, title: item.title, quadrant: item.quadrant, dueDate: item.dueDate, notes: item.notes, taskIds: item.taskIds },
+          ],
+          products: state.products.map((p) =>
+            p.id === item.productId ? { ...p, projectIds: [...p.projectIds, item.id] } : p
+          ),
+        };
+      }
+
+      if (item.type === "product") {
+        return {
+          archivedItems,
+          products: [
+            ...state.products,
+            { id: item.id, areaId: item.areaId, name: item.title, stakeholderIds: item.stakeholderIds, completionPct: item.completionPct, projectIds: item.projectIds },
+          ],
+        };
+      }
+
+      return { archivedItems };
+    }),
 }));

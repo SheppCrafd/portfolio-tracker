@@ -84,6 +84,25 @@ export const mockTasks = [
 ];
 
 export const mockArchivedItems = [
-  { id: "arch-1", type: "project", title: "Legacy search revamp", archivedDate: "2026-05-02" },
-  { id: "arch-2", type: "product", title: "Deprecated Widgets SDK", archivedDate: "2026-04-18" },
+  {
+    id: "arch-1",
+    type: "project",
+    title: "Legacy search revamp",
+    archivedDate: "2026-05-02",
+    productId: "prod-1",
+    quadrant: { q1: 0, q2: 0, q3: 0, q4: 8 },
+    dueDate: "2026-04-01",
+    notes: [],
+    taskIds: [],
+  },
+  {
+    id: "arch-2",
+    type: "product",
+    title: "Deprecated Widgets SDK",
+    archivedDate: "2026-04-18",
+    areaId: "area-2",
+    stakeholderIds: ["st-2"],
+    completionPct: 100,
+    projectIds: [],
+  },
 ];

@@ -96,3 +96,12 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@keyframes chat-launch-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.85; }
+}
+
+.chat-launch-pulse {
+  animation: chat-launch-pulse 2s ease-in-out infinite;
+}

@@ -9,6 +9,7 @@ import ScrollToTop from './components/ScrollToTop';
 import { HighlightProvider } from '@/lib/HighlightContext';
 import AppShell from '@/components/layout/AppShell';
 import Dashboard from '@/pages/Dashboard';
+import ArchiveView from '@/components/archive/ArchiveView';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -40,6 +41,7 @@ const AuthenticatedApp = () => {
       <Routes>
         {/* Add your page Route elements here */}
         <Route path="/" element={<Dashboard />} />
+        <Route path="/archive" element={<ArchiveView />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </AppShell>
