@@ -1,19 +1,17 @@
-// Live 4-quadrant block — counts are derived from real Task records (task.quadrant 1-4)
-// and refresh instantly via the realtime subscription in useTasks.
+// Live 4-quadrant widget — unassigned tasks count toward Q4. A quadrant's count
+// turns emerald/bold if any task inside it is marked as this week's focus.
 export default function ProjectQuadrant({ tasks }) {
-  const cells = [
-    { label: "To Do", value: tasks.filter((t) => t.quadrant === 1).length },
-    { label: "In Progress", value: tasks.filter((t) => t.quadrant === 2).length },
-    { label: "Review", value: tasks.filter((t) => t.quadrant === 3).length },
-    { label: "Done", value: tasks.filter((t) => t.quadrant === 4).length },
-  ];
+  const inQuadrant = (q) => tasks.filter((t) => (t.quadrant || 4) === q);
+  const cells = [1, 2, 3, 4].map((q) => {
+    const qTasks = inQuadrant(q);
+    return { q, count: qTasks.length, focus: qTasks.some((t) => t.is_weekly_focus) };
+  });
 
   return (
-    <div className="grid grid-cols-2 gap-1 text-center">
+    <div className="grid grid-cols-2 gap-1 w-14 shrink-0">
       {cells.map((c) => (
-        <div key={c.label} className="bg-muted rounded p-1.5">
-          <div className="text-sm font-semibold">{c.value}</div>
-          <div className="text-[10px] text-muted-foreground">{c.label}</div>
+        <div key={c.q} className="bg-muted rounded p-1.5 text-center">
+          <div className={`text-sm ${c.focus ? "text-emerald-700 font-extrabold" : "font-semibold"}`}>{c.count}</div>
         </div>
       ))}
     </div>

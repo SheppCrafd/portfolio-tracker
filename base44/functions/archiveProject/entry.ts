@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 
-// Restores a project and un-cascades archived_at from its tasks.
+// Cascading archive: tags the project is_archived, and cascades archived_at to every child task.
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -10,12 +10,11 @@ Deno.serve(async (req) => {
     const { projectId } = await req.json();
     if (!projectId) return Response.json({ error: 'projectId is required' }, { status: 400 });
 
-    const project = await base44.entities.Project.update(projectId, { is_archived: false });
+    const project = await base44.entities.Project.update(projectId, { is_archived: true });
 
     const tasks = await base44.entities.Task.filter({ project_id: projectId });
-    await Promise.all(
-      tasks.filter((t) => t.archived_at).map((t) => base44.entities.Task.update(t.id, { archived_at: null }))
-    );
+    const now = new Date().toISOString();
+    await Promise.all(tasks.map((t) => base44.entities.Task.update(t.id, { archived_at: now })));
 
     return Response.json({ project });
   } catch (error) {

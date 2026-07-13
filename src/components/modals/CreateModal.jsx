@@ -3,8 +3,17 @@ import { X } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import TaskForm from "@/components/modals/TaskForm";
 import ProjectForm from "@/components/modals/ProjectForm";
+import ProductForm from "@/components/modals/ProductForm";
+import AreaForm from "@/components/modals/AreaForm";
 
-// Polymorphic create modal — switches between TaskForm / ProjectForm based on createModalType.
+const TYPES = [
+  { key: "task", label: "Task" },
+  { key: "project", label: "Project" },
+  { key: "product", label: "Product" },
+  { key: "area", label: "Area" },
+];
+
+// Polymorphic create modal — switches between the four object forms based on createModalType.
 export default function CreateModal() {
   const isOpen = useAppStore((s) => s.isCreateModalOpen);
   const type = useAppStore((s) => s.createModalType);
@@ -15,11 +24,11 @@ export default function CreateModal() {
 
   const renderForm = () => {
     switch (type) {
-      case "project":
-        return <ProjectForm onDone={closeCreateModal} />;
+      case "project": return <ProjectForm onDone={closeCreateModal} />;
+      case "product": return <ProductForm onDone={closeCreateModal} />;
+      case "area": return <AreaForm onDone={closeCreateModal} />;
       case "task":
-      default:
-        return <TaskForm onDone={closeCreateModal} />;
+      default: return <TaskForm onDone={closeCreateModal} />;
     }
   };
 
@@ -31,19 +40,16 @@ export default function CreateModal() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="flex gap-2">
-              <button
-                className={`text-sm px-3 py-1 rounded-full ${type === "task" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
-                onClick={() => setType({ createModalType: "task" })}
-              >
-                Task
-              </button>
-              <button
-                className={`text-sm px-3 py-1 rounded-full ${type === "project" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
-                onClick={() => setType({ createModalType: "project" })}
-              >
-                Project
-              </button>
+            <div className="flex gap-1.5 flex-wrap">
+              {TYPES.map((t) => (
+                <button
+                  key={t.key}
+                  className={`text-xs px-2.5 py-1 rounded-full ${type === t.key ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                  onClick={() => setType({ createModalType: t.key })}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
             <button onClick={closeCreateModal}>
               <X className="w-4 h-4" />

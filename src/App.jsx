@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import { HighlightProvider } from '@/lib/HighlightContext';
+import { FilterProvider } from '@/lib/FilterContext';
 import AppShell from '@/components/layout/AppShell';
 import Dashboard from '@/pages/Dashboard';
 import ArchiveView from '@/components/archive/ArchiveView';
@@ -55,11 +56,13 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <HighlightProvider>
-          <Router>
-            <ScrollToTop />
-            <AuthenticatedApp />
-          </Router>
-          <Toaster />
+          <FilterProvider>
+            <Router>
+              <ScrollToTop />
+              <AuthenticatedApp />
+            </Router>
+            <Toaster />
+          </FilterProvider>
         </HighlightProvider>
       </QueryClientProvider>
     </AuthProvider>

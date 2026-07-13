@@ -12,17 +12,17 @@ Deno.serve(async (req) => {
     const task = await base44.entities.Task.get(taskId);
     if (!task) return Response.json({ error: 'Task not found' }, { status: 404 });
 
-    const nextValue = !task.is_top_three;
+    const nextValue = !task.is_today_top_three;
 
     if (nextValue) {
-      const projectTasks = await base44.entities.Task.filter({ project_id: task.project_id, is_top_three: true });
+      const projectTasks = await base44.entities.Task.filter({ project_id: task.project_id, is_today_top_three: true });
       const otherTopThree = projectTasks.filter((t) => t.id !== taskId);
       if (otherTopThree.length >= 3) {
         return Response.json({ error: 'Only 3 "Top 3" tasks are allowed per project' }, { status: 400 });
       }
     }
 
-    const updated = await base44.entities.Task.update(taskId, { is_top_three: nextValue });
+    const updated = await base44.entities.Task.update(taskId, { is_today_top_three: nextValue });
     return Response.json({ task: updated });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

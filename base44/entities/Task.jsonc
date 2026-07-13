@@ -11,20 +11,53 @@
     "status": {
       "type": "string",
       "enum": [
-        "todo",
-        "in_progress",
-        "done"
+        "NOT_STARTED",
+        "IN_PROGRESS",
+        "DELEGATED",
+        "PENDING_FEEDBACK",
+        "ON_HOLD",
+        "BLOCKED",
+        "DONE",
+        "DELEGATED_DONE"
       ],
-      "default": "todo"
+      "default": "NOT_STARTED"
     },
     "quadrant": {
       "type": "integer"
     },
-    "is_top_three": {
+    "is_highly_important": {
       "type": "boolean",
       "default": false
     },
+    "is_quick_task": {
+      "type": "boolean",
+      "default": false
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "COMMUNICATION",
+        "OPEN_QUESTIONS",
+        "SCRUM_NEEDS",
+        "EMPLOYEE_NEEDS",
+        "OTHER"
+      ],
+      "default": "OTHER"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "stakeholder_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "is_weekly_focus": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_today_top_three": {
       "type": "boolean",
       "default": false
     },

@@ -41,7 +41,8 @@ export default function AreaCard({ area, productCount, onExpand, stakeholderIds 
       >
         {title}
       </h3>
-      <p className="text-sm text-muted-foreground mt-1">{productCount} products</p>
+      {area.description && <p className="text-sm text-muted-foreground mt-1">{area.description}</p>}
+      <p className="text-xs text-muted-foreground mt-1">{productCount} products</p>
     </article>
   );
 }

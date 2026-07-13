@@ -7,7 +7,10 @@ export default function ProjectNotes({ notes }) {
       {notes.map((note) => (
         <li key={note.id} className="text-xs flex items-start gap-1.5">
           <span aria-hidden="true">{note.type === "RISK" ? "⚠️" : "❓"}</span>
-          <span className="text-muted-foreground">{note.content}</span>
+          <span className="text-muted-foreground">
+            {note.content}
+            {note.reporter ? <span> — {note.reporter}</span> : null}
+          </span>
         </li>
       ))}
     </ul>

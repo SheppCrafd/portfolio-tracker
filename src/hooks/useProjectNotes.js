@@ -8,3 +8,8 @@ export function useProjectNotes(projectId) {
     enabled: !!projectId,
   });
 }
+
+// Used by the stakeholder relational metrics grid (aggregate note counts per stakeholder).
+export function useAllProjectNotes() {
+  return useQuery({ queryKey: ["allProjectNotes"], queryFn: () => base44.entities.ProjectNote.list() });
+}

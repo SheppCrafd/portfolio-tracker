@@ -1,56 +1,56 @@
 import { useState } from "react";
-import { differenceInHours } from "date-fns";
-import { useDraggable } from "@dnd-kit/core";
+import { Expand } from "lucide-react";
 import ProjectQuadrant from "@/components/projects/ProjectQuadrant";
 import ProjectNotes from "@/components/projects/ProjectNotes";
+import DueDateBadge from "@/components/projects/DueDateBadge";
 import TaskTableModal from "@/components/projects/TaskTableModal";
+import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
 import { useHighlight } from "@/lib/HighlightContext";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjectNotes } from "@/hooks/useProjectNotes";
 
-function getDueBadge(dueDate) {
-  if (!dueDate) return { label: "No due date", className: "bg-secondary text-secondary-foreground" };
-  const diffHours = differenceInHours(new Date(dueDate), new Date());
-  if (diffHours < 0) return { label: "Overdue", className: "bg-red-100 text-red-700" };
-  if (diffHours < 48) return { label: "Due soon", className: "bg-orange-100 text-orange-700" };
-  return { label: dueDate.slice(0, 10), className: "bg-secondary text-secondary-foreground" };
-}
-
 export default function ProjectCard({ project, stakeholderIds = [] }) {
   const [isTableOpen, setIsTableOpen] = useState(false);
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: project.id });
-  const dueBadge = getDueBadge(project.due_date);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { highlightedIds } = useHighlight();
   const isDimmed = highlightedIds.length > 0 && !stakeholderIds.some((id) => highlightedIds.includes(id));
   const { data: tasks = [] } = useTasks(project.id);
   const { data: notes = [] } = useProjectNotes(project.id);
 
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: isDragging ? 20 : "auto" }
-    : undefined;
+  const allDone = tasks.length > 0 && tasks.every((t) => t.status === "DONE" || t.status === "DELEGATED_DONE");
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onClick={() => setIsTableOpen(true)}
-      className={`bg-background border border-border rounded-lg p-3 cursor-pointer hover:border-primary/50 transition-colors ${isDragging ? "opacity-50" : ""} ${isDimmed ? "opacity-30" : ""}`}
-    >
-      <h4 className="font-medium text-sm" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-        {project.title}
-      </h4>
-      <span className={`inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full ${dueBadge.className}`}>
-        {dueBadge.label}
-      </span>
-      <div className="mt-3">
-        <ProjectQuadrant tasks={tasks} />
+    <div className={`relative bg-background border border-border rounded-lg p-3 transition-colors ${isDimmed ? "opacity-30" : ""}`}>
+      <button
+        onClick={() => setIsDetailOpen(true)}
+        className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+        aria-label="Expand project"
+      >
+        <Expand className="w-3.5 h-3.5" />
+      </button>
+
+      <div className="flex items-start gap-2">
+        <button onClick={() => setIsTableOpen(true)} className="shrink-0">
+          <ProjectQuadrant tasks={tasks} />
+        </button>
+
+        <div className="flex-1 text-center px-1 min-w-0">
+          <h4 className="font-heading font-semibold text-sm">{project.title}</h4>
+          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{project.objective}</p>
+        </div>
+
+        <DueDateBadge project={project} allDone={allDone} />
       </div>
-      <ProjectNotes notes={notes} />
+
+      <div className="mt-2">
+        <ProjectNotes notes={notes} />
+      </div>
 
       {isTableOpen && (
         <TaskTableModal project={project} onClose={() => setIsTableOpen(false)} />
+      )}
+      {isDetailOpen && (
+        <ProjectDetailModal project={project} onClose={() => setIsDetailOpen(false)} />
       )}
     </div>
   );

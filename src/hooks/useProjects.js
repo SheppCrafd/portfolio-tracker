@@ -29,11 +29,31 @@ export function useMoveProject() {
   });
 }
 
+export function useUpdateProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Project.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data) => base44.entities.Project.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+export function useArchiveProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => base44.functions.invoke("archiveProject", { projectId: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["archivedProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["allTasks"] });
+    },
   });
 }
 
@@ -44,6 +64,7 @@ export function useRestoreProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["archivedProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });
 }

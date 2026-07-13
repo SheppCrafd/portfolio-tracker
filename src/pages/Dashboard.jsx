@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAreas } from "@/hooks/useAreas";
 import { useProducts } from "@/hooks/useProducts";
+import { useFilter } from "@/lib/FilterContext";
 import AreaCard from "@/components/areas/AreaCard";
 import AreaModal from "@/components/areas/AreaModal";
 import CreateModal from "@/components/modals/CreateModal";
@@ -9,6 +10,7 @@ import CreateModal from "@/components/modals/CreateModal";
 export default function Dashboard() {
   const { data: areas = [], isLoading: areasLoading } = useAreas();
   const { data: products = [] } = useProducts();
+  const { excludedIds } = useFilter();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedArea, setExpandedArea] = useState(null);
 
@@ -36,6 +38,8 @@ export default function Dashboard() {
     return <div className="text-sm text-muted-foreground">Loading areas...</div>;
   }
 
+  const visibleAreas = areas.filter((a) => !excludedIds.includes(a.id));
+
   return (
     <div>
       <h1 className="font-heading text-2xl font-semibold mb-6">Areas of Responsibility</h1>
@@ -43,7 +47,7 @@ export default function Dashboard() {
         className="grid gap-5"
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}
       >
-        {areas.map((area) => (
+        {visibleAreas.map((area) => (
           <AreaCard
             key={area.id}
             area={area}

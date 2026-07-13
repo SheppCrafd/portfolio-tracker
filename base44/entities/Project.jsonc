@@ -5,15 +5,44 @@
     "parent_product_id": {
       "type": "string"
     },
+    "parent_area_id": {
+      "type": "string"
+    },
     "title": {
       "type": "string"
     },
     "objective": {
       "type": "string"
     },
+    "problem_statement": {
+      "type": "string"
+    },
+    "activity": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "owner_name": {
+      "type": "string"
+    },
     "due_date": {
       "type": "string",
       "format": "date-time"
+    },
+    "due_date_status": {
+      "type": "string",
+      "enum": [
+        "ESTIMATED",
+        "COMMITTED"
+      ],
+      "default": "ESTIMATED"
+    },
+    "stakeholder_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "is_archived": {
       "type": "boolean",
@@ -25,10 +54,16 @@
     },
     "custom_data": {
       "type": "object"
+    },
+    "display_on_card_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [
-    "parent_product_id",
+    "parent_area_id",
     "title"
   ]
 }

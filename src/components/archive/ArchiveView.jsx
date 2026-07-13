@@ -3,8 +3,8 @@ import { RotateCcw } from "lucide-react";
 import { useArchivedProjects, useRestoreProject } from "@/hooks/useProjects";
 
 // Archive shell: ISO-8601 date range filter hitting the archivedProjects function
-// (which strictly omits nested tasks), plus a Restore action that hydrates a
-// project back into the active dashboard.
+// (which returns quadrant counts but omits nested task arrays), plus a Restore
+// action that hydrates a project back into the active dashboard.
 export default function ArchiveView() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -44,7 +44,9 @@ export default function ArchiveView() {
             <div key={item.id} className="flex items-center justify-between bg-card border border-border rounded-lg p-4">
               <div>
                 <p className="font-medium text-sm">{item.title}</p>
-                <p className="text-xs text-muted-foreground">Project · last updated {item.updated_date?.slice(0, 10)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Quadrants: {item.quadrant_counts?.join(" / ")} · last updated {item.updated_date?.slice(0, 10)}
+                </p>
               </div>
               <button
                 onClick={() => restoreProject.mutate(item.id)}

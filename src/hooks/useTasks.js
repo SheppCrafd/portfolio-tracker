@@ -41,9 +41,20 @@ export function useAllTasks() {
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ project_id, description }) => base44.functions.invoke("createTask", { project_id, description }),
+    mutationFn: (data) => base44.functions.invoke("createTask", data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks", variables.project_id] });
+      queryClient.invalidateQueries({ queryKey: ["allTasks"] });
+    },
+  });
+}
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Task.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });
@@ -66,6 +77,7 @@ export function useToggleTopThree() {
     mutationFn: ({ id }) => base44.functions.invoke("toggleTopThree", { taskId: id }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks", variables.project_id] });
+      queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });
 }

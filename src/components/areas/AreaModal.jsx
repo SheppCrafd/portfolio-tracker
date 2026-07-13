@@ -3,12 +3,20 @@ import { X } from "lucide-react";
 import { DndContext } from "@dnd-kit/core";
 import Portal from "@/lib/Portal";
 import { useProducts } from "@/hooks/useProducts";
-import { useMoveProject } from "@/hooks/useProjects";
+import { useProjects, useMoveProject } from "@/hooks/useProjects";
+import { useFilter } from "@/lib/FilterContext";
 import ProductCard from "@/components/products/ProductCard";
+import ProjectCard from "@/components/projects/ProjectCard";
 
 export default function AreaModal({ area, onClose }) {
   const { data: allProducts = [] } = useProducts();
-  const products = allProducts.filter((p) => p.parent_area_id === area.id);
+  const { data: allProjects = [] } = useProjects();
+  const { excludedIds } = useFilter();
+  const products = allProducts.filter((p) => p.parent_area_id === area.id && !excludedIds.includes(p.id));
+  // Standalone projects: belong to this area directly, no parent product.
+  const standaloneProjects = allProjects.filter(
+    (p) => p.parent_area_id === area.id && !p.parent_product_id && !excludedIds.includes(p.id)
+  );
   const moveProject = useMoveProject();
 
   useEffect(() => {
@@ -36,6 +44,9 @@ export default function AreaModal({ area, onClose }) {
               <ProductCard key={product.id} product={product} />
             ))}
           </DndContext>
+          {standaloneProjects.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
         </div>
       </div>
     </Portal>

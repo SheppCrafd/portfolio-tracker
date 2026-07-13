@@ -12,3 +12,11 @@ export function useUpdateArea() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["areas"] }),
   });
 }
+
+export function useCreateArea() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data) => base44.entities.Area.create(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["areas"] }),
+  });
+}

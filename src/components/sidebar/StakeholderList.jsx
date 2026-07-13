@@ -1,43 +1,72 @@
+import { useState } from "react";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Plus } from "lucide-react";
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useProducts } from "@/hooks/useProducts";
+import { useProjects } from "@/hooks/useProjects";
+import { useAllTasks } from "@/hooks/useTasks";
+import { useAllProjectNotes } from "@/hooks/useProjectNotes";
 import { useHighlight } from "@/lib/HighlightContext";
 import CanvasAvatar from "@/components/sidebar/CanvasAvatar";
+import AddStakeholderModal from "@/components/sidebar/AddStakeholderModal";
 
-// Stakeholders grouped by department; each row shows a live count of products
-// they're attached to (a client-side stand-in for the joined aggregate query).
+// Stakeholders grouped by department, each with a relational metrics grid
+// (live counts of Tasks/Notes/Projects/Products referencing them) and a
+// checkbox that drives the global highlight context.
 export default function StakeholderList() {
   const { data: stakeholders = [] } = useStakeholders();
   const { data: products = [] } = useProducts();
+  const { data: projects = [] } = useProjects();
+  const { data: tasks = [] } = useAllTasks();
+  const { data: notes = [] } = useAllProjectNotes();
   const { highlightedIds, toggleHighlight } = useHighlight();
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const departments = [...new Set(stakeholders.map((s) => s.department))];
 
-  const productCountFor = (stakeholderId) =>
-    products.filter((p) => p.stakeholder_ids?.includes(stakeholderId)).length;
+  const countFor = (list, id) => list.filter((item) => (item.stakeholder_ids || []).includes(id)).length;
 
   return (
-    <Accordion type="multiple" className="w-full">
-      {departments.map((dept) => (
-        <AccordionItem key={dept} value={dept}>
-          <AccordionTrigger className="text-sm">{dept}</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-2">
-              {stakeholders.filter((s) => s.department === dept).map((s) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <Checkbox
-                    checked={highlightedIds.includes(s.id)}
-                    onCheckedChange={() => toggleHighlight(s.id)}
-                  />
-                  <CanvasAvatar name={s.name} avatarUrl={s.avatar_url} />
-                  <span className="text-xs flex-1">{s.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{productCountFor(s.id)} products</span>
-                </div>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
+    <div>
+      <button
+        onClick={() => setIsAddOpen(true)}
+        className="w-full mb-3 text-xs flex items-center justify-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md"
+      >
+        <Plus className="w-3.5 h-3.5" />
+        Add Stakeholder
+      </button>
+
+      <Accordion type="multiple" className="w-full">
+        {departments.map((dept) => (
+          <AccordionItem key={dept} value={dept}>
+            <AccordionTrigger className="text-sm">{dept}</AccordionTrigger>
+            <AccordionContent>
+              <div className="space-y-3">
+                {stakeholders.filter((s) => s.department === dept).map((s) => (
+                  <div key={s.id} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={highlightedIds.includes(s.id)}
+                        onChange={() => toggleHighlight(s.id)}
+                      />
+                      <CanvasAvatar name={s.name} avatarUrl={s.avatar_url} />
+                      <span className="text-xs flex-1 truncate">{s.name}</span>
+                    </div>
+                    <div className="flex gap-1.5 pl-6 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded">Tasks {countFor(tasks, s.id)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded">Notes {countFor(notes, s.id)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded">Projects {countFor(projects, s.id)}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded">Products {countFor(products, s.id)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+
+      {isAddOpen && <AddStakeholderModal onClose={() => setIsAddOpen(false)} />}
+    </div>
   );
 }
