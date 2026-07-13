@@ -1,15 +1,20 @@
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useAppStore } from "@/lib/store";
+import { useStakeholders } from "@/hooks/useStakeholders";
+import { useProducts } from "@/hooks/useProducts";
 import { useHighlight } from "@/lib/HighlightContext";
 import CanvasAvatar from "@/components/sidebar/CanvasAvatar";
 
-// Stakeholders grouped by department in an accordion; checkboxes toggle the
-// global highlight context used to dim non-relevant cards across the app.
+// Stakeholders grouped by department; each row shows a live count of products
+// they're attached to (a client-side stand-in for the joined aggregate query).
 export default function StakeholderList() {
-  const stakeholders = useAppStore((s) => s.stakeholders);
+  const { data: stakeholders = [] } = useStakeholders();
+  const { data: products = [] } = useProducts();
   const { highlightedIds, toggleHighlight } = useHighlight();
   const departments = [...new Set(stakeholders.map((s) => s.department))];
+
+  const productCountFor = (stakeholderId) =>
+    products.filter((p) => p.stakeholder_ids?.includes(stakeholderId)).length;
 
   return (
     <Accordion type="multiple" className="w-full">
@@ -24,8 +29,9 @@ export default function StakeholderList() {
                     checked={highlightedIds.includes(s.id)}
                     onCheckedChange={() => toggleHighlight(s.id)}
                   />
-                  <CanvasAvatar name={s.name} avatarUrl={s.avatarUrl} />
-                  <span className="text-xs">{s.name}</span>
+                  <CanvasAvatar name={s.name} avatarUrl={s.avatar_url} />
+                  <span className="text-xs flex-1">{s.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{productCountFor(s.id)} products</span>
                 </div>
               ))}
             </div>

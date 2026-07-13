@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { base44 } from "@/api/base44Client";
 
-const DUMMY_RESPONSE = "Here's a quick **summary**:\n\n- Workspace Core is 62% complete\n- 2 risks flagged this week\n- 3 tasks due in the next 48 hours\n\nLet me know if you'd like more detail!";
-
-// Floating AI chat simulation: click-outside-to-close, GPU-accelerated launch
-// icon animation, and character-by-character mock streaming through react-markdown.
+// Floating AI chat: click-outside-to-close, GPU-accelerated launch icon animation,
+// and a real LLM call (aiChatStream function) whose reply is revealed
+// character-by-character through react-markdown to mimic token streaming.
 export default function ChatBox() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -23,26 +23,33 @@ export default function ChatBox() {
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const simulateStream = () => {
+  const revealText = (fullText) => {
     setStreamingText("");
     let idx = 0;
     const interval = setInterval(() => {
       idx += 1;
-      setStreamingText(DUMMY_RESPONSE.slice(0, idx));
-      if (idx >= DUMMY_RESPONSE.length) {
+      setStreamingText(fullText.slice(0, idx));
+      if (idx >= fullText.length) {
         clearInterval(interval);
-        setMessages((prev) => [...prev, { role: "assistant", content: DUMMY_RESPONSE }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: fullText }]);
         setStreamingText(null);
       }
     }, 15);
   };
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    setMessages((prev) => [...prev, { role: "user", content: input }]);
+    const userMessage = input;
+    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setInput("");
-    setTimeout(simulateStream, 300);
+
+    try {
+      const res = await base44.functions.invoke("aiChatStream", { message: userMessage });
+      revealText(res.data.reply || "");
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, something went wrong." }]);
+    }
   };
 
   return (

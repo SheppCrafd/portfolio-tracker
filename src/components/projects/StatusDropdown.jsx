@@ -1,16 +1,14 @@
 import { useState, useRef } from "react";
 import Portal from "@/lib/Portal";
-import { useAppStore } from "@/lib/store";
 
 const STATUSES = ["todo", "in_progress", "done"];
 
 // Status dropdown rendered via Portal at document.body, positioned with fixed
 // coordinates from the trigger button so table rows can't clip it.
-export default function StatusDropdown({ task }) {
+export default function StatusDropdown({ task, onStatusChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const buttonRef = useRef(null);
-  const updateTaskStatus = useAppStore((s) => s.updateTaskStatus);
 
   const handleToggle = () => {
     if (!isOpen && buttonRef.current) {
@@ -21,7 +19,7 @@ export default function StatusDropdown({ task }) {
   };
 
   const handleSelect = (status) => {
-    updateTaskStatus(task.id, status);
+    onStatusChange(status);
     setIsOpen(false);
   };
 

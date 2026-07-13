@@ -16,7 +16,7 @@ export default function AvatarStack({ stakeholders }) {
                 +{overflow}
               </div>
             ) : (
-              <Avatar name={s.name} avatarUrl={s.avatarUrl} />
+              <Avatar name={s.name} avatarUrl={s.avatar_url} />
             )}
           </div>
         );

@@ -1,23 +1,29 @@
 import { useState } from "react";
+import { differenceInHours } from "date-fns";
 import { useDraggable } from "@dnd-kit/core";
 import ProjectQuadrant from "@/components/projects/ProjectQuadrant";
 import ProjectNotes from "@/components/projects/ProjectNotes";
 import TaskTableModal from "@/components/projects/TaskTableModal";
 import { useHighlight } from "@/lib/HighlightContext";
+import { useTasks } from "@/hooks/useTasks";
+import { useProjectNotes } from "@/hooks/useProjectNotes";
 
 function getDueBadge(dueDate) {
-  const diffHours = (new Date(dueDate) - new Date()) / (1000 * 60 * 60);
+  if (!dueDate) return { label: "No due date", className: "bg-secondary text-secondary-foreground" };
+  const diffHours = differenceInHours(new Date(dueDate), new Date());
   if (diffHours < 0) return { label: "Overdue", className: "bg-red-100 text-red-700" };
   if (diffHours < 48) return { label: "Due soon", className: "bg-orange-100 text-orange-700" };
-  return { label: dueDate, className: "bg-secondary text-secondary-foreground" };
+  return { label: dueDate.slice(0, 10), className: "bg-secondary text-secondary-foreground" };
 }
 
 export default function ProjectCard({ project, stakeholderIds = [] }) {
   const [isTableOpen, setIsTableOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: project.id });
-  const dueBadge = getDueBadge(project.dueDate);
+  const dueBadge = getDueBadge(project.due_date);
   const { highlightedIds } = useHighlight();
   const isDimmed = highlightedIds.length > 0 && !stakeholderIds.some((id) => highlightedIds.includes(id));
+  const { data: tasks = [] } = useTasks(project.id);
+  const { data: notes = [] } = useProjectNotes(project.id);
 
   const style = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: isDragging ? 20 : "auto" }
@@ -39,9 +45,9 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
         {dueBadge.label}
       </span>
       <div className="mt-3">
-        <ProjectQuadrant quadrant={project.quadrant} />
+        <ProjectQuadrant tasks={tasks} />
       </div>
-      <ProjectNotes notes={project.notes} />
+      <ProjectNotes notes={notes} />
 
       {isTableOpen && (
         <TaskTableModal project={project} onClose={() => setIsTableOpen(false)} />

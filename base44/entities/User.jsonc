@@ -7,6 +7,12 @@
         "admin",
         "user"
       ]
+    },
+    "department": {
+      "type": "string"
+    },
+    "avatar_url": {
+      "type": "string"
     }
   },
   "required": [

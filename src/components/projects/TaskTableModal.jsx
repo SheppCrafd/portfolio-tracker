@@ -1,16 +1,21 @@
 import { useState, useRef, useMemo, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Star } from "lucide-react";
 import Portal from "@/lib/Portal";
-import { useAppStore } from "@/lib/store";
+import { useTasks, useCreateTask, useUpdateTaskStatus, useToggleTopThree } from "@/hooks/useTasks";
+import { useToast } from "@/components/ui/use-toast";
 import StatusDropdown from "@/components/projects/StatusDropdown";
 
 const MAX_ROWS = 20;
 
-// Static task table modal — capped at 20 rows to mock DOM virtualization,
-// with clickable sort headers, a rapid-entry row, and portal-based status dropdowns.
+// Live task table — sortable headers, rapid-entry row backed by the createTask
+// function, and a Top-3 toggle enforced server-side (max 3 per project).
 export default function TaskTableModal({ project, onClose }) {
-  const tasks = useAppStore((s) => s.tasks.filter((t) => t.projectId === project.id));
-  const addTask = useAppStore((s) => s.addTask);
+  const { data: tasks = [] } = useTasks(project.id);
+  const createTask = useCreateTask();
+  const updateStatus = useUpdateTaskStatus();
+  const toggleTopThree = useToggleTopThree();
+  const { toast } = useToast();
+
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
   const [newDescription, setNewDescription] = useState("");
@@ -32,17 +37,31 @@ export default function TaskTableModal({ project, onClose }) {
 
   const sortedTasks = useMemo(() => {
     if (!sortColumn) return tasks;
-    const sorted = [...tasks].sort((a, b) => a[sortColumn].localeCompare(b[sortColumn]));
+    const sorted = [...tasks].sort((a, b) => String(a[sortColumn]).localeCompare(String(b[sortColumn])));
     return sortDirection === "asc" ? sorted : sorted.reverse();
   }, [tasks, sortColumn, sortDirection]);
 
   const handleNewTaskKeyDown = (e) => {
     if (e.key === "Enter" && newDescription.trim()) {
-      addTask({ id: `task-${Date.now()}`, projectId: project.id, description: newDescription, status: "todo" });
+      createTask.mutate({ project_id: project.id, description: newDescription });
       setNewDescription("");
-      // Simulate rapid entry: refocus the blank input for the next row
       requestAnimationFrame(() => newRowInputRef.current?.focus());
     }
+  };
+
+  const handleToggleTopThree = (task) => {
+    toggleTopThree.mutate(
+      { id: task.id, project_id: project.id },
+      {
+        onError: (err) => {
+          toast({
+            variant: "destructive",
+            title: "Can't add to Top 3",
+            description: err?.response?.data?.error || "Only 3 top-three tasks are allowed per project.",
+          });
+        },
+      }
+    );
   };
 
   const SortHeader = ({ column, label }) => (
@@ -65,17 +84,28 @@ export default function TaskTableModal({ project, onClose }) {
                 <tr className="text-left text-muted-foreground border-b border-border">
                   <SortHeader column="description" label="Description" />
                   <SortHeader column="status" label="Status" />
+                  <th className="p-3 font-medium">Top 3</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedTasks.slice(0, MAX_ROWS).map((task) => (
                   <tr key={task.id} className="border-b border-border last:border-0">
                     <td className="p-3">{task.description}</td>
-                    <td className="p-3"><StatusDropdown task={task} /></td>
+                    <td className="p-3">
+                      <StatusDropdown
+                        task={task}
+                        onStatusChange={(status) => updateStatus.mutate({ id: task.id, status, project_id: project.id })}
+                      />
+                    </td>
+                    <td className="p-3">
+                      <button onClick={() => handleToggleTopThree(task)} aria-label="Toggle top 3">
+                        <Star className={`w-4 h-4 ${task.is_top_three ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 <tr>
-                  <td className="p-2" colSpan={2}>
+                  <td className="p-2" colSpan={3}>
                     <input
                       ref={newRowInputRef}
                       value={newDescription}

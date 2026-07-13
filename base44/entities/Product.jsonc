@@ -8,6 +8,12 @@
     "title": {
       "type": "string"
     },
+    "stakeholder_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "custom_data": {
       "type": "object"
     }

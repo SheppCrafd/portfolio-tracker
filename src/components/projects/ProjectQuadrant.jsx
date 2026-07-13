@@ -1,10 +1,11 @@
-// Static 4-quadrant block showing hardcoded task counts per project.
-export default function ProjectQuadrant({ quadrant }) {
+// Live 4-quadrant block — counts are derived from real Task records (task.quadrant 1-4)
+// and refresh instantly via the realtime subscription in useTasks.
+export default function ProjectQuadrant({ tasks }) {
   const cells = [
-    { label: "To Do", value: quadrant.q1 },
-    { label: "In Progress", value: quadrant.q2 },
-    { label: "Review", value: quadrant.q3 },
-    { label: "Done", value: quadrant.q4 },
+    { label: "To Do", value: tasks.filter((t) => t.quadrant === 1).length },
+    { label: "In Progress", value: tasks.filter((t) => t.quadrant === 2).length },
+    { label: "Review", value: tasks.filter((t) => t.quadrant === 3).length },
+    { label: "Done", value: tasks.filter((t) => t.quadrant === 4).length },
   ];
 
   return (

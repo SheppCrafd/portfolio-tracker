@@ -1,4 +1,4 @@
-import { useAppStore } from "@/lib/store";
+import { useAllTasks } from "@/hooks/useTasks";
 
 // Custom horizontal bar chart built with raw SVG <rect> elements — no charting library.
 const STATUS_META = [
@@ -8,7 +8,7 @@ const STATUS_META = [
 ];
 
 export default function StatisticsChart() {
-  const tasks = useAppStore((s) => s.tasks);
+  const { data: tasks = [] } = useAllTasks();
   const counts = STATUS_META.map((meta) => ({
     ...meta,
     count: tasks.filter((t) => t.status === meta.key).length,

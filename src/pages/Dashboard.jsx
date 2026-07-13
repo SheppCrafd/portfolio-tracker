@@ -1,13 +1,40 @@
-import { useState } from "react";
-import { useAppStore } from "@/lib/store";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useAreas } from "@/hooks/useAreas";
+import { useProducts } from "@/hooks/useProducts";
 import AreaCard from "@/components/areas/AreaCard";
 import AreaModal from "@/components/areas/AreaModal";
 import CreateModal from "@/components/modals/CreateModal";
 
 export default function Dashboard() {
-  const areas = useAppStore((s) => s.areas);
-  const products = useAppStore((s) => s.products);
+  const { data: areas = [], isLoading: areasLoading } = useAreas();
+  const { data: products = [] } = useProducts();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [expandedArea, setExpandedArea] = useState(null);
+
+  // Deep link: ?areaId={id} reopens the matching area on direct visit.
+  useEffect(() => {
+    const areaId = searchParams.get("areaId");
+    if (areaId && areas.length && !expandedArea) {
+      const match = areas.find((a) => a.id === areaId);
+      if (match) setExpandedArea(match);
+    }
+  }, [searchParams, areas, expandedArea]);
+
+  const handleExpand = (area) => {
+    setExpandedArea(area);
+    setSearchParams({ areaId: area.id });
+  };
+
+  const handleClose = () => {
+    setExpandedArea(null);
+    searchParams.delete("areaId");
+    setSearchParams(searchParams);
+  };
+
+  if (areasLoading) {
+    return <div className="text-sm text-muted-foreground">Loading areas...</div>;
+  }
 
   return (
     <div>
@@ -20,15 +47,15 @@ export default function Dashboard() {
           <AreaCard
             key={area.id}
             area={area}
-            productCount={products.filter((p) => p.areaId === area.id).length}
-            onExpand={() => setExpandedArea(area)}
-            stakeholderIds={products.filter((p) => p.areaId === area.id).flatMap((p) => p.stakeholderIds)}
+            productCount={products.filter((p) => p.parent_area_id === area.id).length}
+            onExpand={() => handleExpand(area)}
+            stakeholderIds={products.filter((p) => p.parent_area_id === area.id).flatMap((p) => p.stakeholder_ids || [])}
           />
         ))}
       </div>
       <CreateModal />
       {expandedArea && (
-        <AreaModal area={expandedArea} onClose={() => setExpandedArea(null)} />
+        <AreaModal area={expandedArea} onClose={handleClose} />
       )}
     </div>
   );
