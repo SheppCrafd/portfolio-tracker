@@ -102,18 +102,18 @@ export default function ChatBox({ activeProjectId }) {
         for (const tool of response.tool_calls) {
           const args = JSON.parse(tool.arguments);
           
-          // Route the LLM's decision to your React Query mutations
+          // Route the LLM's decision to your React Query mutations using standard .mutate()
           switch (tool.name) {
             case "create_note":
-              // await createNote.mutateAsync({ project_id: activeProjectId, text: args.note_text, stakeholders: args.tagged_stakeholder_ids });
+              // createNote.mutate({ project_id: activeProjectId, text: args.note_text, stakeholders: args.tagged_stakeholder_ids });
               actionSummaries.push(`📝 I created a note and tagged the requested stakeholders.`);
               break;
             case "update_task_status":
-              await updateTaskStatus.mutateAsync({ id: args.task_id, status: args.status });
+              updateTaskStatus.mutate({ id: args.task_id, status: args.status });
               actionSummaries.push(`✅ I updated the task status to ${args.status}.`);
               break;
             case "flag_top_three":
-              await toggleTopThree.mutateAsync({ id: args.task_id });
+              toggleTopThree.mutate({ id: args.task_id });
               actionSummaries.push(`⭐ I flagged the task for Today's Top 3.`);
               break;
             default:
