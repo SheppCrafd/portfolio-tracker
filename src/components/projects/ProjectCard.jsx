@@ -1,4 +1,3 @@
-// src/components/projects/ProjectCard.jsx
 import { useState, useEffect } from "react";
 import { Expand, GripVertical } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
@@ -11,7 +10,7 @@ import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
 import { useHighlight } from "@/lib/HighlightContext";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjectNotes } from "@/hooks/useProjectNotes";
-import { useUpdateProject } from "@/hooks/useProjects"; // <-- For inline editing
+import { useUpdateProject } from "@/hooks/useProjects";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
 export default function ProjectCard({ project, stakeholderIds = [] }) {
@@ -37,7 +36,7 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
     debouncedSave(value);
   };
 
-  // DRAG AND DROP HOOK
+  // Draggable logic for dnd-kit
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
   });
@@ -56,7 +55,6 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
       style={style}
       className={`relative bg-background border border-border rounded-lg p-3 transition-colors ${isDimmed ? "opacity-30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"}`}
     >
-      {/* Grab Handle for Dragging */}
       <div 
         {...attributes} 
         {...listeners} 
@@ -79,7 +77,6 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
         </button>
 
         <div className="flex-1 text-center px-1 min-w-0">
-          {/* INLINE EDITING: Title */}
           <h4 
             className="font-heading font-semibold text-sm break-words outline-none focus:ring-1 focus:ring-primary/40 rounded cursor-text"
             contentEditable
