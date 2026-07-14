@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAreas } from "@/hooks/useAreas";
 import { useProducts } from "@/hooks/useProducts";
+import { useProjects } from "@/hooks/useProjects"; // <-- Added Projects Hook
 import { useFilter } from "@/lib/FilterContext";
 import AreaCard from "@/components/areas/AreaCard";
 import AreaModal from "@/components/areas/AreaModal";
@@ -10,6 +11,7 @@ import CreateModal from "@/components/modals/CreateModal";
 export default function Dashboard() {
   const { data: areas = [], isLoading: areasLoading } = useAreas();
   const { data: products = [] } = useProducts();
+  const { data: projects = [] } = useProjects(); // <-- Fetch projects
   const { excludedIds } = useFilter();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedArea, setExpandedArea] = useState(null);
@@ -52,15 +54,32 @@ export default function Dashboard() {
           className="grid gap-5"
           style={{ gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))" }}
         >
-          {visibleAreas.map((area) => (
-            <AreaCard
-              key={area.id}
-              area={area}
-              productCount={products.filter((p) => p.parent_area_id === area.id).length}
-              onExpand={() => handleExpand(area)}
-              stakeholderIds={products.filter((p) => p.parent_area_id === area.id).flatMap((p) => p.stakeholder_ids || [])}
-            />
-          ))}
+          {visibleAreas.map((area) => {
+            // PHASE 2 MAPPING: Group products and projects for this specific Area
+            const areaProducts = products.filter((p) => p.parent_area_id === area.id);
+            
+            // Map projects into their parent products
+            const productsWithProjects = areaProducts.map((product) => ({
+              ...product,
+              projects: projects.filter((proj) => proj.parent_product_id === product.id)
+            }));
+
+            // Find projects that belong to the Area directly (no parent product)
+            const orphanProjects = projects.filter(
+              (proj) => proj.parent_area_id === area.id && !proj.parent_product_id
+            );
+
+            return (
+              <AreaCard
+                key={area.id}
+                area={area}
+                products={productsWithProjects} // <-- Passing nested products + projects
+                orphanProjects={orphanProjects} // <-- Passing direct projects
+                onExpand={() => handleExpand(area)}
+                stakeholderIds={areaProducts.flatMap((p) => p.stakeholder_ids || [])}
+              />
+            );
+          })}
         </div>
       )}
       <CreateModal />
