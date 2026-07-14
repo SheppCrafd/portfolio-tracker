@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Check, Plus } from "lucide-react";
 
 export default function StakeholderAssigner({ 
@@ -7,16 +8,49 @@ export default function StakeholderAssigner({
   onSave 
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
+  // Calculate coordinates when opening
+  const handleToggle = () => {
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuCoords({
+        top: rect.bottom + 4, // 4px margin
+        left: rect.left,
+      });
+    }
+    setIsOpen(!isOpen);
+  };
+
+  // Close dropdown when clicking outside or scrolling (to prevent detached floating)
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false);
+      // Check if click is outside both the trigger button and the portal menu
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target)
+      ) {
+        setIsOpen(false);
+      }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+
+    const handleScroll = () => {
+      if (isOpen) setIsOpen(false);
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      // 'true' uses the capture phase to catch scrolls on ANY internal container
+      window.addEventListener("scroll", handleScroll, true); 
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen]);
 
   const toggleStakeholder = (id) => {
     const newIds = currentStakeholderIds.includes(id)
@@ -30,11 +64,12 @@ export default function StakeholderAssigner({
   const assigned = allStakeholders.filter(s => currentStakeholderIds.includes(s.id));
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
+    <>
       {/* TRIGGER: The Avatar Stack (or a Plus button if empty) */}
       <div 
+        ref={triggerRef}
         className="flex items-center cursor-pointer hover:opacity-80 transition-opacity min-h-[24px] min-w-[24px]" 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         title="Assign Stakeholders"
       >
         {assigned.length === 0 ? (
@@ -57,9 +92,16 @@ export default function StakeholderAssigner({
         )}
       </div>
 
-      {/* DROPDOWN MENU */}
-      {isOpen && (
-        <div className="absolute top-full mt-1 left-0 w-48 max-h-64 overflow-y-auto bg-card border border-border rounded-md shadow-xl z-50 p-1">
+      {/* DROPDOWN MENU (Rendered in a Portal at the document root) */}
+      {isOpen && createPortal(
+        <div 
+          ref={dropdownRef}
+          className="fixed w-48 max-h-64 overflow-y-auto bg-card border border-border rounded-md shadow-2xl z-[9999] p-1 animate-in fade-in zoom-in-95 duration-100"
+          style={{ 
+            top: `${menuCoords.top}px`, 
+            left: `${menuCoords.left}px` 
+          }}
+        >
           <p className="text-[10px] font-bold uppercase text-muted-foreground px-2 py-1.5 border-b border-border mb-1">
             Assign Stakeholders
           </p>
@@ -76,8 +118,9 @@ export default function StakeholderAssigner({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
