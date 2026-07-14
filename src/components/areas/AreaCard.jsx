@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Trash2 } from "lucide-react"; // <-- Removed all Dropdown imports
+import { Trash2 } from "lucide-react"; 
+import { useDroppable } from "@dnd-kit/core"; // <-- ADDED
 import { useHighlight } from "@/lib/HighlightContext";
 import { useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
@@ -13,6 +14,9 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
   const updateArea = useUpdateArea();
   const deleteArea = useDeleteArea();
   const [title, setTitle] = useState(area.title);
+
+  // Setup the drop zone for the Area (to catch projects dragged OUT of products)
+  const { setNodeRef, isOver } = useDroppable({ id: area.id });
 
   useEffect(() => setTitle(area.title), [area.title]);
 
@@ -38,8 +42,6 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
       
       {/* Header Section */}
       <div className="relative">
-        
-        {/* ACTION CORNER: Replaced Dropdown with direct Trash button */}
         <div className="absolute top-0 right-0 flex items-center gap-1 z-20">
           <button 
             onClick={handleDelete}
@@ -79,19 +81,24 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
         </div>
       )}
 
-      {/* VISUAL NESTING: Render Orphan Projects (Directly under Area) */}
-      {orphanProjects.length > 0 && (
-        <div className="mt-2 p-4 border border-dashed border-border rounded-lg bg-muted/30">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Direct Projects
-          </h4>
-          <div className="flex flex-col gap-3">
-            {orphanProjects.map((project) => (
+      {/* VISUAL NESTING: Render Orphan Projects (Direct Zone / Drop Target) */}
+      <div 
+        ref={setNodeRef}
+        className={`mt-2 p-4 border border-dashed rounded-lg transition-colors ${isOver ? "bg-primary/10 border-primary" : "border-border bg-muted/30"}`}
+      >
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Direct Projects
+        </h4>
+        <div className="flex flex-col gap-3 min-h-[50px]">
+          {orphanProjects.length === 0 ? (
+             <p className="text-xs text-muted-foreground text-center py-4">Drop a project here to remove it from a product</p>
+          ) : (
+            orphanProjects.map((project) => (
               <ProjectCard key={project.id} project={project} stakeholderIds={stakeholderIds} />
-            ))}
-          </div>
+            ))
+          )}
         </div>
-      )}
+      </div>
 
     </article>
   );
