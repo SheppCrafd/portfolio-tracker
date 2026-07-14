@@ -84,9 +84,12 @@ export default function ChatBox({ activeProjectId }) {
       You are the core admin routing engine for this dashboard. YOU HAVE FULL SYSTEM ACCESS.
       CRITICAL RULE: YOU MUST RESPOND ONLY IN VALID JSON FORMAT. Do not include any conversational text outside the JSON.
       
-      Look up the entity ID in the lists below and determine the action.
+      CRITICAL MAPPING RULE: If an action requires an ID (e.g., parent_product_id, project_id, task_id), you MUST look up the correct ID from the [GLOBAL DATABASE STATE] lists below using the name the user provided. Do NOT pass the plain text name as the ID. If you cannot find an exact or close match for the ID, route to the "UNKNOWN" action and tell the user you couldn't find it.
       
       [AVAILABLE ACTIONS]
+      
+      Look up the entity ID in the lists below and determine the action.
+      
       - "UNDO_LAST_ACTION" (Use this if the user says "undo", "go back", "revert that", etc. No args required)
       - "CREATE_AREA" (args required: name)
       - "UPDATE_AREA" (args required: area_id, name)
