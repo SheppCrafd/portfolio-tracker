@@ -1,25 +1,28 @@
-import React, { createContext, useContext, useState, useMemo } from "react";
+import React, { createContext, useContext, useState } from "react";
 
-// Global highlight context: tracks which stakeholder IDs are "highlighted".
-// Any card NOT in this array (when it's non-empty) should dim to opacity-30.
-const HighlightContext = createContext(null);
+const HighlightContext = createContext();
 
 export function HighlightProvider({ children }) {
   const [highlightedIds, setHighlightedIds] = useState([]);
 
+  // Toggles a stakeholder ID in or out of the active highlight array
   const toggleHighlight = (id) => {
     setHighlightedIds((prev) =>
-      prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
-  const value = useMemo(() => ({ highlightedIds, toggleHighlight }), [highlightedIds]);
-
-  return <HighlightContext.Provider value={value}>{children}</HighlightContext.Provider>;
+  return (
+    <HighlightContext.Provider value={{ highlightedIds, toggleHighlight }}>
+      {children}
+    </HighlightContext.Provider>
+  );
 }
 
 export function useHighlight() {
-  const ctx = useContext(HighlightContext);
-  if (!ctx) throw new Error("useHighlight must be used within a HighlightProvider");
-  return ctx;
+  const context = useContext(HighlightContext);
+  if (!context) {
+    throw new Error("useHighlight must be used within a HighlightProvider");
+  }
+  return context;
 }
