@@ -1,50 +1,19 @@
 import { useState, useRef, useMemo } from "react";
 import { Star, Trash2, Plus, Archive } from "lucide-react";
 import { useTasks, useCreateTask, useUpdateTask, useToggleTopThree, useDeleteTask } from "@/hooks/useTasks";
-import { useStakeholders } from "@/hooks/useStakeholders"; // NEW
+import { useStakeholders } from "@/hooks/useStakeholders";
 import { useToast } from "@/components/ui/use-toast";
 import { useHighlight } from "@/lib/HighlightContext";
 import StatusDropdown from "@/components/projects/StatusDropdown";
 import EditableText from "@/components/shared/EditableText";
+import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
 
 const MAX_ROWS = 20;
 const TYPE_OPTIONS = ["COMMUNICATION", "OPEN_QUESTIONS", "SCRUM_NEEDS", "EMPLOYEE_NEEDS", "OTHER"];
 
-// NEW: Overlapping face pile component
-function AvatarStack({ stakeholderIds, allStakeholders }) {
-  if (!stakeholderIds || stakeholderIds.length === 0) return <span className="text-[10px] text-muted-foreground">None</span>;
-  
-  const assigned = allStakeholders.filter(s => stakeholderIds.includes(s.id));
-  const visible = assigned.slice(0, 5);
-  const extra = assigned.length - 5;
-
-  return (
-    <div className="flex items-center pl-2">
-      {visible.map((s, i) => (
-        <div 
-          key={s.id} 
-          className="w-6 h-6 rounded-full bg-secondary border-2 border-card flex items-center justify-center text-[10px] font-bold shadow-sm" 
-          style={{ marginLeft: i > 0 ? '-10px' : '0', zIndex: 10 - i }} 
-          title={s.name}
-        >
-          {s.name.charAt(0).toUpperCase()}
-        </div>
-      ))}
-      {extra > 0 && (
-        <div 
-          className="w-6 h-6 rounded-full bg-muted border-2 border-card flex items-center justify-center text-[10px] font-bold shadow-sm" 
-          style={{ marginLeft: '-10px', zIndex: 0 }}
-        >
-          +{extra}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function TaskTable({ project }) {
   const { data: tasks = [] } = useTasks(project.id);
-  const { data: allStakeholders = [] } = useStakeholders(); // NEW
+  const { data: allStakeholders = [] } = useStakeholders();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const toggleTopThree = useToggleTopThree();
@@ -131,7 +100,7 @@ export default function TaskTable({ project }) {
           <th className="p-2 font-medium">Status</th>
           <th className="p-2 font-medium">Quad.</th>
           <th className="p-2 font-medium">Type</th>
-          <th className="p-2 font-medium">Stakeholders</th> {/* NEW COLUMN */}
+          <th className="p-2 font-medium">Stakeholders</th>
           <th className="p-2 font-medium">Notes</th>
           <th className="p-2 font-medium">Weekly</th>
           <th className="p-2 font-medium">Top 3</th>
@@ -179,9 +148,12 @@ export default function TaskTable({ project }) {
                 {TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
               </select>
             </td>
-            {/* NEW STAKEHOLDER CELL */}
             <td className="p-2 whitespace-nowrap">
-              <AvatarStack stakeholderIds={task.stakeholder_ids} allStakeholders={allStakeholders} />
+              <StakeholderAssigner 
+                currentStakeholderIds={task.stakeholder_ids || []} 
+                allStakeholders={allStakeholders} 
+                onSave={(newIds) => updateTask.mutate({ id: task.id, data: { stakeholder_ids: newIds } })}
+              />
             </td>
             <td className="p-2 min-w-0 max-w-[140px]">
               <EditableText
