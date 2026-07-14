@@ -5,10 +5,10 @@ import { useHighlight } from "@/lib/HighlightContext";
 import { useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import EditableText from "@/components/shared/EditableText";
-import ProductCard from "@/components/products/ProductCard";
-import ProjectCard from "@/components/projects/ProjectCard";
+import ProductCard from "@/components/products/ProductCard"; // <-- ADDED
+import ProjectCard from "@/components/projects/ProjectCard"; // <-- ADDED
 
-export default function AreaCard({ area, products = [], orphanProjects = [], onExpand, stakeholderIds = [] }) {
+export default function AreaCard({ area, products = [], orphanProjects = [], productCount, onExpand, stakeholderIds = [] }) {
   const { highlightedIds } = useHighlight();
   const isDimmed = highlightedIds.length > 0 && !stakeholderIds.some((id) => highlightedIds.includes(id));
   const updateArea = useUpdateArea();
@@ -36,24 +36,26 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
 
   return (
     <article className={`relative z-10 bg-card border border-border rounded-xl p-5 break-inside-avoid flex flex-col gap-4 ${isDimmed ? "opacity-30" : ""}`}>
-      <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="text-muted-foreground hover:text-foreground p-1" aria-label="Area actions">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onExpand}>Edit details</DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
-              <Trash2 className="w-3.5 h-3.5 mr-2" />
-              Delete Area
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div>
+      
+      {/* Header Section */}
+      <div className="relative">
+        <div className="absolute top-0 right-0 flex items-center gap-1 z-20">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="text-muted-foreground hover:text-foreground p-1" aria-label="Area actions">
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onExpand}>Edit details</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                <Trash2 className="w-3.5 h-3.5 mr-2" />
+                Delete Area
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        
         <h3
           className="font-heading font-semibold text-lg pr-10 outline-none focus:ring-1 focus:ring-primary/40 rounded break-words min-w-0"
           contentEditable
@@ -70,9 +72,10 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
             className="text-sm text-muted-foreground"
           />
         </div>
+        <p className="text-xs text-muted-foreground mt-1">{productCount} products</p>
       </div>
 
-      {/* Nested Products */}
+      {/* VISUAL NESTING: Render Products */}
       {products.length > 0 && (
         <div className="flex flex-col gap-4 mt-2">
           {products.map((product) => (
@@ -81,19 +84,20 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
         </div>
       )}
 
-      {/* Nested Direct Projects (No Parent Product) */}
+      {/* VISUAL NESTING: Render Orphan Projects (Directly under Area) */}
       {orphanProjects.length > 0 && (
-        <div className="mt-2 p-4 border border-dashed rounded-lg bg-muted/30">
+        <div className="mt-2 p-4 border border-dashed border-border rounded-lg bg-muted/30">
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Direct Projects
           </h4>
           <div className="flex flex-col gap-3">
             {orphanProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectCard key={project.id} project={project} stakeholderIds={stakeholderIds} />
             ))}
           </div>
         </div>
       )}
+
     </article>
   );
 }
