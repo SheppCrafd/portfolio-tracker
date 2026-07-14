@@ -114,7 +114,7 @@ export default function ChatBox({ activeProjectId }) {
       {
         "action": "THE_ACTION_NAME",
         "args": { "key": "value" },
-        "message": "Your response to the user. Speak like a highly capable, candid, and upbeat AI assistant. Be conversational and energetic. Do not use generic robotic phrases like 'How can I assist you'. If they just say hello, say hi back! Be honest about being an AI, but be witty and direct. MUST BE A VALID JSON STRING."
+        "message": "Your response to the user. Be calm, candid, and concise. Do NOT be overly enthusiastic (no 'boom', 'crush it', or 'high-octane' nonsense). Speak like a normal, helpful, and chill human developer. Be honest about being an AI. MUST BE A VALID JSON STRING."
       }`;
 
       const response = await base44.integrations.Core.InvokeLLM({ prompt: combinedPrompt });
