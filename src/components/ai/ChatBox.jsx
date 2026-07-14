@@ -8,7 +8,7 @@ import { useCreateArea } from "@/hooks/useAreas";
 import { useCreateProduct } from "@/hooks/useProducts";
 import { useCreateProject, useArchiveProject, useDeleteProject, useRestoreProject } from "@/hooks/useProjects";
 import { useStakeholders, useCreateStakeholder, useDeleteStakeholder } from "@/hooks/useStakeholders";
-import { useUpdateTaskStatus, useToggleTopThree, useDeleteTask } from "@/hooks/useTasks";
+import { useTasks, useUpdateTaskStatus, useToggleTopThree, useDeleteTask } from "@/hooks/useTasks";
 
 export default function ChatBox({ activeProjectId }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -19,6 +19,7 @@ export default function ChatBox({ activeProjectId }) {
 
   // 1. INITIALIZE ALL MUTATIONS
   const { data: allStakeholders = [] } = useStakeholders();
+  const { data: projectTasks = [] } = useTasks(activeProjectId); // <-- ADD THIS
   
   const createArea = useCreateArea();
   const createProduct = useCreateProduct();
@@ -168,11 +169,13 @@ export default function ChatBox({ activeProjectId }) {
     setIsComputing(true);
 
     try {
+
       const response = await base44.integrations.Core.InvokeLLM({
         prompt: userText,
-        system_context: `You are a helpful AI assistant for a project management system called Portfolio Tracker. You have access to a set of tools that allow you to create areas, products, projects, tasks, and stakeholders, as well as update their statuses. You can also archive or delete projects and tasks. Your goal is to assist the user in managing their portfolio efficiently.
+        system_context: `You are a helpful AI assistant for a project management system called Portfolio Tracker. You have access to a set of tools that allow you to create areas, products, projects, tasks, and stakeholders, as well as update their statuses. You can also archive or delete projects and tasks. Your goal is to assist the user in managing their portfolio efficiently. 
         Active Project ID: ${activeProjectId}. 
-        Available Stakeholders: ${JSON.stringify(allStakeholders.map(s => ({id: s.id, name: s.name})))})`,
+        Available Stakeholders: ${JSON.stringify(allStakeholders.map(s => ({id: s.id, name: s.name})))}
+        Active Tasks: ${JSON.stringify(projectTasks.map(t => ({id: t.id, title: t.title || t.name})))}`,
         tools: agentTools
       });
 
