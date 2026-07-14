@@ -1,24 +1,39 @@
-import { differenceInHours } from "date-fns";
+import React from 'react';
 
-// Due Date Time-Delta Engine: blue if all tasks done, black if estimated,
-// otherwise green/orange/red based on hours remaining vs a 48h "at risk" threshold.
 export default function DueDateBadge({ project, allDone }) {
-  let colorClass = "text-foreground font-semibold";
-  const label = project.due_date ? project.due_date.slice(0, 10) : "No due date";
-
-  if (allDone) {
-    colorClass = "text-blue-600 font-semibold";
-  } else if (project.due_date_status === "COMMITTED" && project.due_date) {
-    const diffHours = differenceInHours(new Date(project.due_date), new Date());
-    if (diffHours < 0) colorClass = "text-red-600 font-semibold";
-    else if (diffHours < 48) colorClass = "text-orange-500 font-semibold";
-    else colorClass = "text-green-600 font-semibold";
+  if (!project.dueDate) {
+    return (
+      <div className="text-right shrink-0 min-w-[70px]">
+        <p className="text-[10px] font-semibold text-muted-foreground truncate">{project.owner || "Unassigned"}</p>
+        <p className="text-[10px] text-muted-foreground">No due date</p>
+      </div>
+    );
   }
 
+  // REQUIREMENT: Date Color Coding
+  let dateColor = "text-black dark:text-white"; // Default: Estimated
+  
+  if (allDone || project.dueDateStatus === "Done") {
+    dateColor = "text-blue-500 font-bold";
+  } else if (project.dueDateStatus === "Committed - On Track") {
+    dateColor = "text-green-600 font-bold";
+  } else if (project.dueDateStatus === "Committed - At Risk") {
+    dateColor = "text-orange-500 font-bold";
+  } else if (project.dueDateStatus === "Committed - Missed") {
+    dateColor = "text-red-600 font-bold";
+  }
+
+  // Format date to a short string (e.g., "Oct 12")
+  const formattedDate = new Date(project.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
   return (
-    <div className="text-right text-[11px] shrink-0 max-w-[90px]">
-      <p className="text-muted-foreground truncate">{project.owner_name || "Unassigned"}</p>
-      <p className={`${colorClass} whitespace-nowrap`}>{label}</p>
+    <div className="text-right shrink-0 min-w-[70px]">
+      <p className="text-[10px] font-semibold text-muted-foreground truncate" title={project.owner}>
+        {project.owner || "Unassigned"}
+      </p>
+      <p className={`text-[11px] ${dateColor}`}>
+        {formattedDate}
+      </p>
     </div>
   );
 }
