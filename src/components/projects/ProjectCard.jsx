@@ -12,18 +12,19 @@ import { useUpdateProject } from "@/hooks/useProjects";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
 export default function ProjectCard({ project, stakeholderIds = [] }) {
-  // Original modal and highlighting state
   const [isTableOpen, setIsTableOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const { highlightedIds } = useHighlight();
-  const isDimmed = highlightedIds.length > 0 && !stakeholderIds.some((id) => highlightedIds.includes(id));
   
-  // Original data fetching hooks
+  const { highlightedIds } = useHighlight();
+  
+  // THE FIX: Safely fallback to reading stakeholder_ids directly from the project object
+  const cardStakeholderIds = project.stakeholder_ids || stakeholderIds || [];
+  const isDimmed = highlightedIds.length > 0 && !cardStakeholderIds.some((id) => highlightedIds.includes(id));
+  
   const { data: tasks = [] } = useTasks(project.id);
   const { data: notes = [] } = useProjectNotes(project.id);
   const updateProject = useUpdateProject();
 
-  // Original Title setup & debounced saving
   const [title, setTitle] = useState(project.title);
   useEffect(() => setTitle(project.title), [project.title]);
 
