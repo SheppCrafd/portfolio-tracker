@@ -16,7 +16,7 @@ export default function ChatBox({ activeProjectId }) {
   const [input, setInput] = useState("");
   const [isComputing, setIsComputing] = useState(false);
   
-  // ⏪ THE UNDO STACK: This remembers the "Inverse" of whatever just happened
+  // ⏪ THE UNDO STACK
   const [actionHistory, setActionHistory] = useState([]);
   
   const containerRef = useRef(null);
@@ -61,7 +61,10 @@ export default function ChatBox({ activeProjectId }) {
 
     const userText = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userText }]);
+    
+    // Append the user's message locally first
+    const updatedMessages = [...messages, { role: "user", content: userText }];
+    setMessages(updatedMessages);
     setIsComputing(true);
 
     try {
@@ -70,6 +73,12 @@ export default function ChatBox({ activeProjectId }) {
       const ctxProjects = projects.map(p => ({ id: p.id, name: p.name }));
       const ctxTasks = allTasks.map(t => ({ id: t.id, text: t.title || t.name || t.description || "Unknown", status: t.status }));
       const ctxStakeholders = stakeholders.map(s => ({ id: s.id, name: s.name }));
+
+      // 🧠 CONVERSATION MEMORY COMPILATION
+      // Format the past chat logs so the LLM knows what has already been said/done.
+      const conversationHistoryString = updatedMessages
+        .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
+        .join("\n");
 
       const combinedPrompt = `[SYSTEM INSTRUCTIONS]
       You are the core admin routing engine for this dashboard. YOU HAVE FULL SYSTEM ACCESS.
@@ -92,11 +101,11 @@ export default function ChatBox({ activeProjectId }) {
       - "DELETE_PROJECT" (args required: project_id)
       - "UPDATE_TASK" (args required: task_id, description, quadrant)
       - "UPDATE_TASK_STATUS" (args required: task_id, status)
-      - "TOGGLE_TOP_THREE" (args required: task_id, intent: "flag"|"unflag")
+      - "TOGGLE_TOP_THREE" (Use this for "top 3", "weekly focus", "focus", or "pinning". args required: task_id, intent: "flag"|"unflag")
       - "DELETE_TASK" (args required: task_id)
       - "CREATE_STAKEHOLDER" (args required: name, department)
       - "DELETE_STAKEHOLDER" (args required: stakeholder_id)
-      - "CHAT_ONLY" (Use this if the user is just saying hello, asking how you are, or making small talk. No args required.)
+      - "CHAT_ONLY" (Use this if the user is just saying hello, asking how you are, making small talk, or referencing a past point in the thread. No args required.)
       - "UNKNOWN" (use only if they ask you to do a dashboard task you cannot fulfill)
       
       [GLOBAL DATABASE STATE]
@@ -107,14 +116,17 @@ export default function ChatBox({ activeProjectId }) {
       Tasks: ${JSON.stringify(ctxTasks)}
       Stakeholders: ${JSON.stringify(ctxStakeholders)}
       
-      [USER REQUEST]
+      [CONVERSATION HISTORY]
+      ${conversationHistoryString}
+      
+      [LATEST USER REQUEST]
       ${userText}
       
       [EXPECTED JSON OUTPUT FORMAT]
       {
         "action": "THE_ACTION_NAME",
         "args": { "key": "value" },
-        "message": "Your text response to the user. CRITICAL TONE RULE: Carefully analyze the vocabulary, formatting, length, punctuation, and overall vibe of the [USER REQUEST] above, and mirror it exactly in your message. If the user is brief, be brief. If the user uses slang or lower-case text, adopt that style. If they are direct and clinical, match that energy perfectly. MUST BE A VALID JSON STRING."
+        "message": "Your text response to the user. CRITICAL TONE RULE: Carefully analyze the vocabulary, formatting, length, punctuation, and overall vibe of the [LATEST USER REQUEST], and mirror it exactly in your message. If the user is brief, be brief. If the user uses slang or lower-case text, adopt that style. Maintain thread context without stating you are an AI. MUST BE A VALID JSON STRING."
       }`;
 
       const response = await base44.integrations.Core.InvokeLLM({ prompt: combinedPrompt });
@@ -126,7 +138,7 @@ export default function ChatBox({ activeProjectId }) {
         const cleanJsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
         aiDecision = JSON.parse(cleanJsonString);
       } catch (parseError) {
-        setMessages((prev) => [...prev, { role: "assistant", content: "I hit a snag trying to process that. Mind trying again?" }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: "Hit a bump parsing that request. Try again?" }]);
         setIsComputing(false);
         return;
       }
@@ -139,7 +151,7 @@ export default function ChatBox({ activeProjectId }) {
         // ⏪ THE UNDO PROTOCOL
         case "UNDO_LAST_ACTION":
           if (actionHistory.length === 0) {
-            setMessages((prev) => [...prev, { role: "assistant", content: "There is nothing in my history to undo right now!" }]);
+            setMessages((prev) => [...prev, { role: "assistant", content: "Nothing to undo right now." }]);
             return;
           }
           
@@ -148,14 +160,14 @@ export default function ChatBox({ activeProjectId }) {
 
           if (lastAction.type === "REVERT_TASK_STATUS") {
             updateTaskStatus.mutate({ id: lastAction.id, status: lastAction.previousStatus, project_id: activeProjectId });
-            setMessages((prev) => [...prev, { role: "assistant", content: `⏪ Undid that! Task status reverted back to **${lastAction.previousStatus}**.` }]);
+            setMessages((prev) => [...prev, { role: "assistant", content: `Reverted task status back to ${lastAction.previousStatus}.` }]);
           } 
           else if (lastAction.type === "REVERT_TOGGLE") {
             toggleTopThree.mutate({ id: lastAction.id, project_id: activeProjectId });
-            setMessages((prev) => [...prev, { role: "assistant", content: `⏪ Reverted the Top 3 status for that task.` }]);
+            setMessages((prev) => [...prev, { role: "assistant", content: `Reverted focus/top 3 status for that task.` }]);
           }
           else {
-             setMessages((prev) => [...prev, { role: "assistant", content: "I can't safely undo that specific action yet." }]);
+             setMessages((prev) => [...prev, { role: "assistant", content: "Can't automatically reverse that action." }]);
           }
           return;
 
@@ -203,7 +215,7 @@ export default function ChatBox({ activeProjectId }) {
 
         case "UNKNOWN":
         default:
-          setMessages((prev) => [...prev, { role: "assistant", content: message || "I couldn't figure out how to do that based on the current data." }]);
+          setMessages((prev) => [...prev, { role: "assistant", content: message || "Couldn't execute that command based on dashboard context." }]);
           return;
       }
 
