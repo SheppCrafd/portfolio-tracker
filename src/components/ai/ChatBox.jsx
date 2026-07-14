@@ -3,10 +3,12 @@ import { MessageCircle, X, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 
-// Dashboard Hooks
-import { useStakeholders } from "@/hooks/useStakeholders";
-import { useUpdateTaskStatus, useToggleTopThree } from "@/hooks/useTasks";
-// import { useCreateProjectNote } from "@/hooks/useProjectNotes"; // Uncomment when you are ready to wire this up!
+// 🚀 IMPORTING ALL THE HOOKS
+import { useCreateArea } from "@/hooks/useAreas";
+import { useCreateProduct } from "@/hooks/useProducts";
+import { useCreateProject, useArchiveProject, useDeleteProject, useRestoreProject } from "@/hooks/useProjects";
+import { useStakeholders, useCreateStakeholder, useDeleteStakeholder } from "@/hooks/useStakeholders";
+import { useUpdateTaskStatus, useToggleTopThree, useDeleteTask } from "@/hooks/useTasks";
 
 export default function ChatBox({ activeProjectId }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -15,11 +17,22 @@ export default function ChatBox({ activeProjectId }) {
   const [isComputing, setIsComputing] = useState(false);
   const containerRef = useRef(null);
 
-  // 1. Initialize all available Agent Tools (Mutations)
+  // 1. INITIALIZE ALL MUTATIONS
   const { data: allStakeholders = [] } = useStakeholders();
+  
+  const createArea = useCreateArea();
+  const createProduct = useCreateProduct();
+  const createProject = useCreateProject();
+  const archiveProject = useArchiveProject();
+  const deleteProject = useDeleteProject();
+  const restoreProject = useRestoreProject();
+  
+  const createStakeholder = useCreateStakeholder();
+  const deleteStakeholder = useDeleteStakeholder();
+  
   const updateTaskStatus = useUpdateTaskStatus();
   const toggleTopThree = useToggleTopThree();
-  // const createNote = useCreateProjectNote();
+  const deleteTask = useDeleteTask();
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -31,24 +44,71 @@ export default function ChatBox({ activeProjectId }) {
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 2. Define the Agent's Tool Schemas
+  // 2. THE MEGA-SCHEMA (Teaching the LLM what it can do)
   const agentTools = [
+    // --- AREAS & PRODUCTS ---
     {
-      name: "create_note",
-      description: "Creates a new note for a project and tags relevant stakeholders.",
+      name: "create_area",
+      description: "Creates a new top-level Area of Responsibility.",
       parameters: {
         type: "object",
-        properties: {
-          note_text: { type: "string" },
-          tagged_stakeholder_ids: {
-            type: "array",
-            items: { type: "string" },
-            description: "Array of Stakeholder IDs matching the names mentioned in the prompt."
-          }
-        },
-        required: ["note_text"]
+        properties: { name: { type: "string", description: "The name of the new area." } },
+        required: ["name"]
       }
     },
+    {
+      name: "create_product",
+      description: "Creates a new Product inside an Area.",
+      parameters: {
+        type: "object",
+        properties: { 
+          area_id: { type: "string" }, 
+          name: { type: "string" } 
+        },
+        required: ["area_id", "name"]
+      }
+    },
+    // --- PROJECTS ---
+    {
+      name: "create_project",
+      description: "Creates a new Project.",
+      parameters: {
+        type: "object",
+        properties: { 
+          parent_product_id: { type: "string" }, 
+          name: { type: "string" } 
+        },
+        required: ["name"]
+      }
+    },
+    {
+      name: "archive_project",
+      description: "Archives an active project.",
+      parameters: {
+        type: "object",
+        properties: { project_id: { type: "string" } },
+        required: ["project_id"]
+      }
+    },
+    {
+      name: "restore_project",
+      description: "Restores a previously archived project back to the dashboard.",
+      parameters: {
+        type: "object",
+        properties: { project_id: { type: "string" } },
+        required: ["project_id"]
+      }
+    },
+    {
+      name: "delete_project",
+      description: "Permanently deletes a project.",
+      parameters: {
+        type: "object",
+        properties: { project_id: { type: "string" } },
+        required: ["project_id"]
+      }
+    },
+    // --- TASKS ---
     {
       name: "update_task_status",
       description: "Updates the status of an existing task.",
@@ -62,17 +122,42 @@ export default function ChatBox({ activeProjectId }) {
       }
     },
     {
-      name: "flag_top_three",
-      description: "Flags a task as one of today's top three focus items.",
+      name: "toggle_top_three",
+      description: "Toggles a task as one of today's top three focus items.",
+      parameters: {
+        type: "object",
+        properties: { 
+          task_id: { type: "string" },
+          intent: { type: "string", enum: ["flag", "unflag"] }
+        },
+        required: ["task_id", "intent"]
+      }
+    },
+    {
+      name: "delete_task",
+      description: "Permanently deletes a task.",
       parameters: {
         type: "object",
         properties: { task_id: { type: "string" } },
         required: ["task_id"]
       }
+    },
+    // --- STAKEHOLDERS ---
+    {
+      name: "create_stakeholder",
+      description: "Creates a new global stakeholder.",
+      parameters: {
+        type: "object",
+        properties: { 
+          name: { type: "string" },
+          role: { type: "string", description: "The person's job title or role" }
+        },
+        required: ["name"]
+      }
     }
   ];
 
-  // 3. The Agentic Execution Loop
+  // 3. THE MASTER EXECUTION LOOP
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -85,41 +170,75 @@ export default function ChatBox({ activeProjectId }) {
     try {
       const response = await base44.integrations.Core.InvokeLLM({
         prompt: userText,
-        system_context: `You are a PM Dashboard Copilot. The active project ID is ${activeProjectId}. Available stakeholders: ${JSON.stringify(allStakeholders.map(s => ({id: s.id, name: s.name})))}`,
+        system_context: `You are a helpful AI assistant for a project management system called Portfolio Tracker. You have access to a set of tools that allow you to create areas, products, projects, tasks, and stakeholders, as well as update their statuses. You can also archive or delete projects and tasks. Your goal is to assist the user in managing their portfolio efficiently.
+        Active Project ID: ${activeProjectId}. 
+        Available Stakeholders: ${JSON.stringify(allStakeholders.map(s => ({id: s.id, name: s.name})))})`,
         tools: agentTools
       });
 
       console.log("RAW AGENT RESPONSE:", response);
 
-      // --- FIX 1: Casual Chat Handler ---
-      // If Base44 returns a plain string, render it and stop.
       if (typeof response === "string") {
         setMessages((prev) => [...prev, { role: "assistant", content: response }]);
         setIsComputing(false);
         return;
       }
 
-      // --- FIX 2: Tool Execution Handler ---
       if (response?.tool_calls && response.tool_calls.length > 0) {
         let actionSummaries = [];
 
         for (const tool of response.tool_calls) {
           const args = JSON.parse(tool.arguments);
           
-          // Route the LLM's decision to your React Query mutations (using standard .mutate())
           switch (tool.name) {
-            case "create_note":
-              // createNote.mutate({ project_id: activeProjectId, text: args.note_text, stakeholders: args.tagged_stakeholder_ids });
-              actionSummaries.push(`📝 I simulated creating a note and tagged the requested stakeholders.`);
+            // Areas & Products
+            case "create_area":
+              createArea.mutate({ name: args.name });
+              actionSummaries.push(`📁 Created new Area: **${args.name}**`);
               break;
+            case "create_product":
+              createProduct.mutate({ area_id: args.area_id, name: args.name });
+              actionSummaries.push(`📦 Created new Product: **${args.name}**`);
+              break;
+            
+            // Projects
+            case "create_project":
+              createProject.mutate({ parent_product_id: args.parent_product_id, name: args.name });
+              actionSummaries.push(`🚀 Created new Project: **${args.name}**`);
+              break;
+            case "archive_project":
+              archiveProject.mutate(args.project_id);
+              actionSummaries.push(`📦 Archived project ${args.project_id}.`);
+              break;
+            case "restore_project":
+              restoreProject.mutate(args.project_id);
+              actionSummaries.push(`🔄 Restored project ${args.project_id}.`);
+              break;
+            case "delete_project":
+              deleteProject.mutate(args.project_id);
+              actionSummaries.push(`🗑️ Deleted project ${args.project_id}.`);
+              break;
+
+            // Tasks
             case "update_task_status":
               updateTaskStatus.mutate({ id: args.task_id, status: args.status });
-              actionSummaries.push(`✅ I updated task ${args.task_id} to ${args.status}.`);
+              actionSummaries.push(`✅ Updated task ${args.task_id} to **${args.status}**.`);
               break;
-            case "flag_top_three":
+            case "toggle_top_three":
               toggleTopThree.mutate({ id: args.task_id });
-              actionSummaries.push(`⭐ I flagged task ${args.task_id} for Today's Top 3.`);
+              actionSummaries.push(`⭐ ${args.intent === "unflag" ? "Unflagged" : "Flagged"} task ${args.task_id} for Top 3.`);
               break;
+            case "delete_task":
+              deleteTask.mutate(args.task_id);
+              actionSummaries.push(`🗑️ Deleted task ${args.task_id}.`);
+              break;
+
+            // Stakeholders
+            case "create_stakeholder":
+              createStakeholder.mutate({ name: args.name, role: args.role || "Team Member" });
+              actionSummaries.push(`👤 Added stakeholder **${args.name}** (${args.role || "Team Member"}).`);
+              break;
+
             default:
               actionSummaries.push(`❓ Agent tried to use an unknown tool: ${tool.name}`);
           }
@@ -127,14 +246,12 @@ export default function ChatBox({ activeProjectId }) {
 
         setMessages((prev) => [...prev, { role: "assistant", content: actionSummaries.join("\n") }]);
       } 
-      // --- Standard Object Handlers ---
       else if (response?.text) {
         setMessages((prev) => [...prev, { role: "assistant", content: response.text }]);
       } 
       else if (response?.content) {
         setMessages((prev) => [...prev, { role: "assistant", content: response.content }]);
       }
-      // --- FIX 3: Catch-All Debugger ---
       else {
         const rawString = JSON.stringify(response, null, 2);
         setMessages((prev) => [
@@ -158,7 +275,7 @@ export default function ChatBox({ activeProjectId }) {
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-primary-foreground">
             <div className="flex items-center gap-2 font-semibold">
               <MessageCircle className="w-5 h-5" />
-              <span>Copilot Agent</span>
+              <span>Copilot Admin</span>
             </div>
             <button onClick={() => setIsChatOpen(false)} className="hover:bg-primary-foreground/20 p-1 rounded-md transition-colors">
               <X className="w-5 h-5" />
@@ -178,7 +295,7 @@ export default function ChatBox({ activeProjectId }) {
               <div className="flex justify-start">
                 <div className="inline-block rounded-lg px-4 py-2 bg-secondary text-secondary-foreground shadow-sm flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-xs text-muted-foreground">Agent is thinking...</span>
+                  <span className="text-xs text-muted-foreground">Admin is working...</span>
                 </div>
               </div>
             )}
@@ -188,12 +305,12 @@ export default function ChatBox({ activeProjectId }) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="E.g., Flag task #123 as top priority..."
+              placeholder="E.g., Archive project 123 and delete task 456..."
               className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
               disabled={isComputing}
             />
             <button type="submit" disabled={isComputing} className="text-sm px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md transition-colors shadow-sm disabled:opacity-50">
-              Send
+              Execute
             </button>
           </form>
         </div>
