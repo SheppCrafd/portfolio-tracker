@@ -15,35 +15,35 @@ export default function ChatBox({ activeProjectId }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isComputing, setIsComputing] = useState(false);
+  
+  // ⏪ THE UNDO STACK: This remembers the "Inverse" of whatever just happened
+  const [actionHistory, setActionHistory] = useState([]);
+  
   const containerRef = useRef(null);
 
-  // 🌍 2. FETCH ALL GLOBAL STATE (The AI's "Eyes")
+  // 🌍 2. FETCH ALL GLOBAL STATE 
   const { data: areas = [] } = useAreas();
   const { data: products = [] } = useProducts();
   const { data: projects = [] } = useProjects();
   const { data: allTasks = [] } = useAllTasks();
   const { data: stakeholders = [] } = useStakeholders();
 
-  // 🌍 3. INITIALIZE EVERY MUTATION (The AI's "Hands")
+  // 🌍 3. INITIALIZE EVERY MUTATION
   const createArea = useCreateArea();
   const updateArea = useUpdateArea();
   const deleteArea = useDeleteArea();
-  
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
-  
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const moveProject = useMoveProject();
   const archiveProject = useArchiveProject();
   const restoreProject = useRestoreProject();
   const deleteProject = useDeleteProject();
-  
   const updateTask = useUpdateTask();
   const updateTaskStatus = useUpdateTaskStatus();
   const toggleTopThree = useToggleTopThree();
   const deleteTask = useDeleteTask();
-  
   const createStakeholder = useCreateStakeholder();
   const deleteStakeholder = useDeleteStakeholder();
 
@@ -65,14 +65,12 @@ export default function ChatBox({ activeProjectId }) {
     setIsComputing(true);
 
     try {
-      // Create lean lookup maps to preserve tokens
       const ctxAreas = areas.map(a => ({ id: a.id, name: a.name }));
       const ctxProducts = products.map(p => ({ id: p.id, name: p.name }));
       const ctxProjects = projects.map(p => ({ id: p.id, name: p.name }));
-      const ctxTasks = allTasks.map(t => ({ id: t.id, text: t.title || t.name || t.description || "Unknown" }));
+      const ctxTasks = allTasks.map(t => ({ id: t.id, text: t.title || t.name || t.description || "Unknown", status: t.status }));
       const ctxStakeholders = stakeholders.map(s => ({ id: s.id, name: s.name }));
 
-      // 🚨 TOTAL OVERRIDE PROMPT: Forcing strict JSON output for every possible action
       const combinedPrompt = `[SYSTEM INSTRUCTIONS]
       You are the core admin routing engine for this dashboard. YOU HAVE FULL SYSTEM ACCESS.
       CRITICAL RULE: YOU MUST RESPOND ONLY IN VALID JSON FORMAT. Do not include any conversational text.
@@ -80,24 +78,25 @@ export default function ChatBox({ activeProjectId }) {
       Look up the entity ID in the lists below and determine the action.
       
       [AVAILABLE ACTIONS]
+      - "UNDO_LAST_ACTION" (Use this if the user says "undo", "go back", "revert that", etc. No args required)
       - "CREATE_AREA" (args required: name)
       - "UPDATE_AREA" (args required: area_id, name)
       - "DELETE_AREA" (args required: area_id)
       - "CREATE_PRODUCT" (args required: area_id, name)
       - "UPDATE_PRODUCT" (args required: product_id, name)
       - "CREATE_PROJECT" (args required: parent_product_id, name)
-      - "UPDATE_PROJECT" (args required: project_id, name (optional), objective (optional))
+      - "UPDATE_PROJECT" (args required: project_id, name, objective)
       - "MOVE_PROJECT" (args required: project_id, parent_product_id)
       - "ARCHIVE_PROJECT" (args required: project_id)
       - "RESTORE_PROJECT" (args required: project_id)
       - "DELETE_PROJECT" (args required: project_id)
-      - "UPDATE_TASK" (args required: task_id, description (optional), quadrant (optional))
-      - "UPDATE_TASK_STATUS" (args required: task_id, status: "Not Started"|"In Progress"|"Done"|"Blocked"|"Pending Feedback"|"On Hold")
+      - "UPDATE_TASK" (args required: task_id, description, quadrant)
+      - "UPDATE_TASK_STATUS" (args required: task_id, status)
       - "TOGGLE_TOP_THREE" (args required: task_id, intent: "flag"|"unflag")
       - "DELETE_TASK" (args required: task_id)
       - "CREATE_STAKEHOLDER" (args required: name, department)
       - "DELETE_STAKEHOLDER" (args required: stakeholder_id)
-      - "UNKNOWN" (use only if you cannot fulfill the request at all)
+      - "UNKNOWN"
       
       [GLOBAL DATABASE STATE]
       Active Project ID: ${activeProjectId || "None"}
@@ -114,23 +113,18 @@ export default function ChatBox({ activeProjectId }) {
       {
         "action": "THE_ACTION_NAME",
         "args": { "key": "value" },
-        "message": "A short, friendly summary of what you did to show the user."
+        "message": "A short, friendly summary of what you did."
       }`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
-        prompt: combinedPrompt
-      });
+      const response = await base44.integrations.Core.InvokeLLM({ prompt: combinedPrompt });
 
-      // Parse the text response as JSON
       let aiDecision;
       const rawText = typeof response === "string" ? response : response?.text || "";
       
       try {
-        // Strip out markdown formatting to ensure clean JSON parsing
         const cleanJsonString = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
         aiDecision = JSON.parse(cleanJsonString);
       } catch (parseError) {
-        console.error("Failed to parse LLM response as JSON:", rawText);
         setMessages((prev) => [...prev, { role: "assistant", content: "I encountered an error processing that request." }]);
         setIsComputing(false);
         return;
@@ -138,68 +132,84 @@ export default function ChatBox({ activeProjectId }) {
 
       const { action, args, message } = aiDecision;
 
-      // 🔀 THE MASTER ROUTER: Manually triggering the hooks based on JSON
+      // 🔀 THE MASTER ROUTER
       switch (action) {
-        // -- AREAS --
-        case "CREATE_AREA":
-          createArea.mutate({ name: args.name });
-          break;
-        case "UPDATE_AREA":
-          updateArea.mutate({ id: args.area_id, data: { name: args.name } });
-          break;
-        case "DELETE_AREA":
-          deleteArea.mutate(args.area_id);
-          break;
+        
+        // ⏪ THE UNDO PROTOCOL
+        case "UNDO_LAST_ACTION":
+          if (actionHistory.length === 0) {
+            setMessages((prev) => [...prev, { role: "assistant", content: "There is nothing in my history to undo right now!" }]);
+            return;
+          }
+          
+          // Pop the last saved inverse action off the stack
+          const lastAction = actionHistory[actionHistory.length - 1];
+          setActionHistory((prev) => prev.slice(0, -1));
 
-        // -- PRODUCTS --
-        case "CREATE_PRODUCT":
-          createProduct.mutate({ area_id: args.area_id, name: args.name });
-          break;
-        case "UPDATE_PRODUCT":
-          updateProduct.mutate({ id: args.product_id, data: { name: args.name } });
-          break;
+          if (lastAction.type === "REVERT_TASK_STATUS") {
+            updateTaskStatus.mutate({ id: lastAction.id, status: lastAction.previousStatus, project_id: activeProjectId });
+            setMessages((prev) => [...prev, { role: "assistant", content: `⏪ Undid that! Task status reverted back to **${lastAction.previousStatus}**.` }]);
+          } 
+          else if (lastAction.type === "REVERT_TOGGLE") {
+            // Since the hook is just a toggle, firing it again reverses it perfectly
+            toggleTopThree.mutate({ id: lastAction.id, project_id: activeProjectId });
+            setMessages((prev) => [...prev, { role: "assistant", content: `⏪ Reverted the Top 3 status for that task.` }]);
+          }
+          else {
+             setMessages((prev) => [...prev, { role: "assistant", content: "I can't safely undo that specific action yet." }]);
+          }
+          return; // Exit early since we handled the undo message manually
 
-        // -- PROJECTS --
-        case "CREATE_PROJECT":
-          createProject.mutate({ parent_product_id: args.parent_product_id, name: args.name });
-          break;
-        case "UPDATE_PROJECT":
-          updateProject.mutate({ id: args.project_id, data: args });
-          break;
-        case "MOVE_PROJECT":
-          moveProject.mutate({ id: args.project_id, parent_product_id: args.parent_product_id });
-          break;
-        case "ARCHIVE_PROJECT":
-          archiveProject.mutate(args.project_id);
-          break;
-        case "RESTORE_PROJECT":
-          restoreProject.mutate(args.project_id);
-          break;
-        case "DELETE_PROJECT":
-          deleteProject.mutate(args.project_id);
-          break;
-
-        // -- TASKS --
-        case "UPDATE_TASK":
-          updateTask.mutate({ id: args.task_id, data: args });
-          break;
+        // -- TASKS (WITH HISTORY TRACKING) --
         case "UPDATE_TASK_STATUS":
+          // 1. Find the old status BEFORE we change it
+          const taskBeforeUpdate = allTasks.find(t => t.id === args.task_id);
+          if (taskBeforeUpdate) {
+            // 2. Save the inverse action to the stack
+            setActionHistory(prev => [...prev, { 
+              type: "REVERT_TASK_STATUS", 
+              id: args.task_id, 
+              previousStatus: taskBeforeUpdate.status || "Not Started" 
+            }]);
+          }
+          // 3. Fire the actual mutation
           updateTaskStatus.mutate({ id: args.task_id, status: args.status, project_id: activeProjectId });
           break;
+
         case "TOGGLE_TOP_THREE":
+          // Save the inverse to the stack. 
+          setActionHistory(prev => [...prev, { 
+            type: "REVERT_TOGGLE", 
+            id: args.task_id 
+          }]);
           toggleTopThree.mutate({ id: args.task_id, project_id: activeProjectId });
           break;
+
+        // -- DESTRUCTIVE ACTIONS (CANNOT BE EASILY UNDONE) --
         case "DELETE_TASK":
+          // We intentionally do NOT push this to the undo stack because it's a hard delete.
+          // You would need backend support for "Soft Deletes" to undo this easily.
           deleteTask.mutate(args.task_id);
           break;
 
-        // -- STAKEHOLDERS --
-        case "CREATE_STAKEHOLDER":
-          createStakeholder.mutate({ name: args.name, department: args.department });
+        case "ARCHIVE_PROJECT":
+          archiveProject.mutate(args.project_id);
           break;
-        case "DELETE_STAKEHOLDER":
-          deleteStakeholder.mutate(args.stakeholder_id);
-          break;
+
+        // -- EVERYTHING ELSE --
+        case "CREATE_AREA": createArea.mutate({ name: args.name }); break;
+        case "UPDATE_AREA": updateArea.mutate({ id: args.area_id, data: { name: args.name } }); break;
+        case "DELETE_AREA": deleteArea.mutate(args.area_id); break;
+        case "CREATE_PRODUCT": createProduct.mutate({ area_id: args.area_id, name: args.name }); break;
+        case "UPDATE_PRODUCT": updateProduct.mutate({ id: args.product_id, data: { name: args.name } }); break;
+        case "CREATE_PROJECT": createProject.mutate({ parent_product_id: args.parent_product_id, name: args.name }); break;
+        case "UPDATE_PROJECT": updateProject.mutate({ id: args.project_id, data: args }); break;
+        case "MOVE_PROJECT": moveProject.mutate({ id: args.project_id, parent_product_id: args.parent_product_id }); break;
+        case "RESTORE_PROJECT": restoreProject.mutate(args.project_id); break;
+        case "DELETE_PROJECT": deleteProject.mutate(args.project_id); break;
+        case "UPDATE_TASK": updateTask.mutate({ id: args.task_id, data: args }); break;
+        case "CREATE_STAKEHOLDER": createStakeholder.mutate({ name: args.name, department: args.department }); break;
+        case "DELETE_STAKEHOLDER": deleteStakeholder.mutate(args.stakeholder_id); break;
 
         case "UNKNOWN":
         default:
@@ -207,7 +217,6 @@ export default function ChatBox({ activeProjectId }) {
           return;
       }
 
-      // If a known action succeeded, print the AI's success message
       setMessages((prev) => [...prev, { role: "assistant", content: `✅ ${message}` }]);
 
     } catch (error) {
