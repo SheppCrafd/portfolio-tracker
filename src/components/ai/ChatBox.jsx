@@ -129,7 +129,7 @@ export default function ChatBox({ activeProjectId }) {
       {
         "action": "THE_ACTION_NAME",
         "args": { "key": "value" },
-        "message": "Your text response to the user. CRITICAL TONE RULE: Carefully analyze the vocabulary, formatting, length, punctuation, and overall vibe of the [LATEST USER REQUEST], and match their tone. If the user is brief, be brief. If the user uses slang or lower-case text, adopt that style. Maintain thread context without stating you are an AI. But, if the user asks anything, you anwser honeslt and staightforwardly. MUST BE A VALID JSON STRING."
+        "message": "Your text response to the user. CRITICAL TONE RULE: Carefully analyze the vocabulary, formatting, length, punctuation, and overall vibe of the [LATEST USER REQUEST], and match their tone. If the user is brief, be brief. If the user uses slang or lower-case text, adopt that style. IMPORTANT: However, never copy the user exactly. Maintain thread context without stating you are an AI. But, if the user asks anything, you anwser honeslt and staightforwardly. MUST BE A VALID JSON STRING."
       }`;
 
       const response = await base44.integrations.Core.InvokeLLM({ prompt: combinedPrompt });
