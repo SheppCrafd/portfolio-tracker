@@ -4,9 +4,11 @@ import { useDroppable } from "@dnd-kit/core";
 import { useHighlight } from "@/lib/HighlightContext";
 import { useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { useAllTasks } from "@/hooks/useTasks";
 import EditableText from "@/components/shared/EditableText";
 import ProductCard from "@/components/products/ProductCard"; 
 import ProjectCard from "@/components/projects/ProjectCard"; 
+import TaskStatistics from "@/components/shared/TaskStatistics";
 
 export default function AreaCard({ area, products = [], orphanProjects = [], productCount, onExpand, stakeholderIds = [] }) {
   const { highlightedIds } = useHighlight();
@@ -14,8 +16,9 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
   const updateArea = useUpdateArea();
   const deleteArea = useDeleteArea();
   const [title, setTitle] = useState(area.title);
+  
+  const { data: allTasks = [] } = useAllTasks();
 
-  // Setup the drop zone for the Area (to catch projects dragged OUT of products)
   const { setNodeRef, isOver } = useDroppable({ id: area.id });
 
   useEffect(() => setTitle(area.title), [area.title]);
@@ -37,10 +40,16 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
     }
   };
 
+  // Calculate tasks belonging to this entire Area
+  const areaProjectIds = [
+    ...products.flatMap((p) => p.projects?.map((proj) => proj.id) || []),
+    ...orphanProjects.map((p) => p.id),
+  ];
+  const areaTasks = allTasks.filter((t) => areaProjectIds.includes(t.project_id));
+
   return (
     <article className={`relative z-10 bg-card border border-border rounded-xl p-5 break-inside-avoid flex flex-col gap-4 ${isDimmed ? "opacity-30" : ""}`}>
       
-      {/* Header Section */}
       <div className="relative">
         <div className="absolute top-0 right-0 flex items-center gap-1 z-20">
           <button 
@@ -71,7 +80,6 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
         </div>
       </div>
 
-      {/* VISUAL NESTING: Render Products */}
       {products.length > 0 && (
         <div className="flex flex-col gap-4 mt-2">
           {products.map((product) => (
@@ -80,7 +88,6 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
         </div>
       )}
 
-      {/* VISUAL NESTING: Render Orphan Projects (Direct Zone / Drop Target) */}
       <div 
         ref={setNodeRef}
         className={`mt-2 p-4 border border-dashed rounded-lg transition-colors ${isOver ? "bg-primary/10 border-primary" : "border-border bg-muted/30"}`}
@@ -99,7 +106,8 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
         </div>
       </div>
 
-      {/* --- STATS ON CARD (Moved to bottom, matching Product/Project Layout) --- */}
+      <TaskStatistics tasks={areaTasks} />
+
       <div className="relative z-[1] mt-auto flex items-center justify-between border-t border-border pt-3 px-1">
         <div className="flex flex-col">
           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Products</span>

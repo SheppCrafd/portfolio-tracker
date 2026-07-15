@@ -13,6 +13,7 @@ import AvatarStack from "@/components/products/AvatarStack";
 import ConnectionLines from "@/components/products/ConnectionLines";
 import ProjectCard from "@/components/projects/ProjectCard";
 import ProductDetailModal from "@/components/products/ProductDetailModal";
+import TaskStatistics from "@/components/shared/TaskStatistics";
 
 export default function ProductCard({ product }) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -39,7 +40,6 @@ export default function ProductCard({ product }) {
   const stakeholders = allStakeholders.filter((st) => product.stakeholder_ids?.includes(st.id));
   const projects = allProjects.filter((p) => p.parent_product_id === product.id && !excludedIds.includes(p.id));
   
-  // Setup the drop zone for projects
   const { setNodeRef, isOver } = useDroppable({ id: product.id });
   
   const { highlightedIds } = useHighlight();
@@ -98,7 +98,8 @@ export default function ProductCard({ product }) {
         )}
       </div>
 
-      {/* --- STATS ON CARD --- */}
+      <TaskStatistics tasks={productTasks} />
+
       <div className="relative z-[1] mt-5 flex items-center justify-between border-t border-border pt-3 px-1">
         <div className="flex flex-col">
           <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Progress</span>
