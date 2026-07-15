@@ -62,6 +62,8 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
 
   // --- REQUIREMENT 1: TASK COUNT & WEEKLY FOCUS CHECK (Excludes Archived/Deleted) ---
   const activeTasks = tasks.filter(t => !t.isArchived && t.status !== "DELETED");
+  const doneTasks = tasks.filter((t) => t.status === "DONE" || t.status === "DELEGATED_DONE" || t.status === "DELEGATED-DONE");
+  const projectProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
   
   const getQuadData = (quadNum) => {
     const quadTasks = activeTasks.filter(t => 
@@ -175,6 +177,22 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
           <p className={`text-[11px] mt-0.5 ${dateColorClass}`}>
             {formattedDate}
           </p>
+        </div>
+      </div>
+
+      {/* --- STATS ON CARD --- */}
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-2 px-1 ml-5">
+        <div className="flex flex-col">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Progress</span>
+          <span className="text-xs font-bold text-primary">{projectProgress}%</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Tasks</span>
+          <span className="text-xs font-semibold text-foreground">{doneTasks.length} <span className="text-muted-foreground font-normal">/ {tasks.length}</span></span>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">Notes</span>
+          <span className="text-xs font-semibold text-foreground">{notes.length}</span>
         </div>
       </div>
 

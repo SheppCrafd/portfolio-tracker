@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react"; 
-import { useDroppable } from "@dnd-kit/core"; // <-- ADDED
+import { useDroppable } from "@dnd-kit/core"; 
 import { useHighlight } from "@/lib/HighlightContext";
 import { useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
@@ -69,7 +69,24 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
             className="text-sm text-muted-foreground"
           />
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{productCount} products</p>
+        
+        {/* --- STATS ON CARD --- */}
+        <div className="flex items-center gap-5 mt-4 bg-muted/30 p-2.5 rounded-lg border border-border w-max">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Products</span>
+            <span className="text-sm font-bold text-foreground">{productCount}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Direct Projects</span>
+            <span className="text-sm font-bold text-foreground">{orphanProjects.length}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Projects</span>
+            <span className="text-sm font-bold text-foreground">
+              {products.reduce((acc, p) => acc + (p.projects?.length || 0), 0) + orphanProjects.length}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* VISUAL NESTING: Render Products */}
