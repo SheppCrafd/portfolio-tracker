@@ -3,7 +3,7 @@ import { MessageCircle, X, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 
-// 🌍 1. IMPORT EVERY DATA & MUTATION HOOK (FULL CRUD)
+// 🌍 1. IMPORT EVERY DATA & MUTATION HOOK (GOD MODE WITH STAKEHOLDER SUPPORT)
 import { useAreas, useCreateArea, useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/useProducts";
 import { useProjects, useCreateProject, useUpdateProject, useMoveProject, useArchiveProject, useRestoreProject, useDeleteProject } from "@/hooks/useProjects";
@@ -79,7 +79,7 @@ export default function ChatBox({ activeProjectId }) {
     setIsComputing(true);
 
     try {
-      // 🧠 OMNISCIENT CONTEXT MAPPING (Using .title to ensure the AI can match names to IDs)
+      // 🧠 OMNISCIENT CONTEXT MAPPING (Using .title to fix the visibility bug)
       const ctxAreas = areas.map(a => ({ id: a.id, name: a.title, description: a.description }));
       const ctxProducts = products.map(p => ({ id: p.id, name: p.title, description: p.description }));
       const ctxProjects = projects.map(p => ({ 
@@ -89,7 +89,7 @@ export default function ChatBox({ activeProjectId }) {
       }));
       const ctxTasks = allTasks.map(t => ({ 
         id: t.id, text: t.title || t.name || t.description || "Unknown", 
-        status: t.status, quadrant: t.quadrant, project_id: t.project_id 
+        status: t.status, quadrant: t.quadrant, project_id: t.project_id, stakeholder_id: t.stakeholder_id 
       }));
       const ctxStakeholders = stakeholders.map(s => ({ id: s.id, name: s.name, department: s.department }));
 
@@ -101,7 +101,7 @@ export default function ChatBox({ activeProjectId }) {
       You are the core admin routing engine for this dashboard. YOU HAVE FULL SYSTEM ACCESS.
       CRITICAL RULE: YOU MUST RESPOND ONLY IN VALID JSON FORMAT. Do not include any conversational text outside the JSON.
       
-      CRITICAL MAPPING RULE: If an action requires an ID, you MUST look up the correct ID from the [GLOBAL DATABASE STATE] lists below using the name/title the user provided. Do NOT pass the plain text name as the ID.
+      CRITICAL MAPPING RULE: If an action requires an ID (like area_id, product_id, project_id, task_id, or stakeholder_id), you MUST look up the correct ID from the [GLOBAL DATABASE STATE] lists below using the name/title the user provided. Do NOT pass plain text names as IDs.
       
       [AVAILABLE ACTIONS - FULL SYSTEM OVERRIDE]
       
@@ -126,8 +126,8 @@ export default function ChatBox({ activeProjectId }) {
       - "UPDATE_PROJECT_NOTE" (args: note_id, content)
       - "DELETE_PROJECT_NOTE" (args: note_id)
       
-      - "CREATE_TASK" (args: project_id, description, quadrant)
-      - "UPDATE_TASK" (args: task_id, description, quadrant)
+      - "CREATE_TASK" (args: project_id, description, quadrant, stakeholder_id)
+      - "UPDATE_TASK" (args: task_id, description, quadrant, stakeholder_id)
       - "UPDATE_TASK_STATUS" (args: task_id, status)
       - "TOGGLE_TOP_THREE" (args: task_id)
       - "DELETE_TASK" (args: task_id)
@@ -204,9 +204,25 @@ export default function ChatBox({ activeProjectId }) {
           setMessages((prev) => [...prev, { role: "assistant", content: message }]);
           return;
 
-        // -- TASKS --
-        case "CREATE_TASK": createTask.mutate({ project_id: args.project_id, ...args }); break;
-        case "UPDATE_TASK": updateTask.mutate({ id: args.task_id, data: args }); break;
+        // -- TASKS (NOW FEATURING STAKEHOLDER_ID NATIVE BINDING) --
+        case "CREATE_TASK": 
+          createTask.mutate({ 
+            project_id: args.project_id, 
+            description: args.description,
+            quadrant: args.quadrant,
+            stakeholder_id: args.stakeholder_id || null
+          }); 
+          break;
+        case "UPDATE_TASK": 
+          updateTask.mutate({ 
+            id: args.task_id, 
+            data: {
+              description: args.description,
+              quadrant: args.quadrant,
+              stakeholder_id: args.stakeholder_id || null
+            } 
+          }); 
+          break;
         case "UPDATE_TASK_STATUS":
           const taskBeforeUpdate = allTasks.find(t => t.id === args.task_id);
           if (taskBeforeUpdate) {
@@ -307,7 +323,7 @@ export default function ChatBox({ activeProjectId }) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="E.g., Move the 'Beta Launch' project to..."
+              placeholder="E.g., Kill everything / Delete all / Build a new..."
               className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
               disabled={isComputing}
             />

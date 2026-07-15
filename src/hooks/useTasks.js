@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 
+// 1. FETCH TASKS FOR A SPECIFIC PROJECT (WITH LIVE SUBSCRIPTION POLLING)
 export function useTasks(projectId) {
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -13,6 +14,7 @@ export function useTasks(projectId) {
     enabled: !!projectId,
   });
 
+  // Live "matrix polling": any Task change refreshes this project's quadrant counts instantly.
   useEffect(() => {
     if (!projectId) return;
     const unsubscribe = base44.entities.Task.subscribe((event) => {
@@ -26,6 +28,7 @@ export function useTasks(projectId) {
   return query;
 }
 
+// 2. FETCH ALL ACTIVE TASKS GLOBALLY (USED BY AGENT CONTEXT & METRICS)
 export function useAllTasks() {
   return useQuery({
     queryKey: ["allTasks"],
@@ -36,28 +39,38 @@ export function useAllTasks() {
   });
 }
 
+// 3. CREATE TASK (SUPPORTS ANY CUSTOM PAYLOADS LIKE STAKEHOLDER_ID)
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data) => base44.entities.Task.create(data),
     onSuccess: (_, variables) => {
+      // Invalidate both general task lists and the active project's tasks
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (variables?.project_id) {
+        queryClient.invalidateQueries({ queryKey: ["tasks", variables.project_id] });
+      }
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });
 }
 
+// 4. UPDATE TASK (GENERIC DATA MUTATION - PERFECT FOR ASSIGNING STAKEHOLDERS)
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }) => base44.entities.Task.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (variables?.data?.project_id) {
+        queryClient.invalidateQueries({ queryKey: ["tasks", variables.data.project_id] });
+      }
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });
 }
 
+// 5. UPDATE TASK STATUS ONLY
 export function useUpdateTaskStatus() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -69,6 +82,7 @@ export function useUpdateTaskStatus() {
   });
 }
 
+// 6. DELETE TASK (SOFT DELETE VIA DELETED_AT TIMESTAMP)
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -80,6 +94,7 @@ export function useDeleteTask() {
   });
 }
 
+// 7. TOGGLE TASK PRIORITY IN TOP THREE FOCUS LIST
 export function useToggleTopThree() {
   const queryClient = useQueryClient();
   return useMutation({
