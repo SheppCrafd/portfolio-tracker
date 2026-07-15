@@ -26,3 +26,11 @@ export function useUpdateProduct() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
   });
 }
+
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => base44.entities.Product.update(id, { deleted_at: new Date().toISOString() }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
+  });
+}

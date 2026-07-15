@@ -19,6 +19,14 @@ export function useCreateStakeholder() {
   });
 }
 
+export function useUpdateStakeholder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => base44.entities.Stakeholder.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["stakeholders"] }),
+  });
+}
+
 export function useDeleteStakeholder() {
   const queryClient = useQueryClient();
   return useMutation({

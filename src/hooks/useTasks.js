@@ -13,7 +13,6 @@ export function useTasks(projectId) {
     enabled: !!projectId,
   });
 
-  // Live "matrix polling": any Task change refreshes this project's quadrant counts instantly.
   useEffect(() => {
     if (!projectId) return;
     const unsubscribe = base44.entities.Task.subscribe((event) => {
@@ -27,7 +26,6 @@ export function useTasks(projectId) {
   return query;
 }
 
-// All non-archived/non-deleted tasks — used for sidebar aggregate stats and product completion %.
 export function useAllTasks() {
   return useQuery({
     queryKey: ["allTasks"],
@@ -41,9 +39,9 @@ export function useAllTasks() {
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => base44.functions.invoke("createTask", data),
+    mutationFn: (data) => base44.entities.Task.create(data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", variables.project_id] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });
@@ -85,9 +83,9 @@ export function useDeleteTask() {
 export function useToggleTopThree() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => base44.functions.invoke("toggleTopThree", { taskId: id }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", variables.project_id] });
+    mutationFn: ({ id }) => base44.functions.invoke("toggleTaskTopThree", { taskId: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });
     },
   });

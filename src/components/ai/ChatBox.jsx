@@ -3,7 +3,7 @@ import { MessageCircle, X, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { base44 } from "@/api/base44Client";
 
-// 🌍 1. IMPORT EVERY DATA & MUTATION HOOK (GOD MODE)
+// 🌍 1. IMPORT EVERY DATA & MUTATION HOOK (FULL CRUD)
 import { useAreas, useCreateArea, useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@/hooks/useProducts";
 import { useProjects, useCreateProject, useUpdateProject, useMoveProject, useArchiveProject, useRestoreProject, useDeleteProject } from "@/hooks/useProjects";
@@ -79,7 +79,7 @@ export default function ChatBox({ activeProjectId }) {
     setIsComputing(true);
 
     try {
-      // 🧠 OMNISCIENT CONTEXT MAPPING (Using .title to fix the visibility bug)
+      // 🧠 OMNISCIENT CONTEXT MAPPING (Using .title to ensure the AI can match names to IDs)
       const ctxAreas = areas.map(a => ({ id: a.id, name: a.title, description: a.description }));
       const ctxProducts = products.map(p => ({ id: p.id, name: p.title, description: p.description }));
       const ctxProjects = projects.map(p => ({ 
@@ -307,7 +307,7 @@ export default function ChatBox({ activeProjectId }) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="E.g., Kill everything / Delete all / Build a new..."
+              placeholder="E.g., Move the 'Beta Launch' project to..."
               className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
               disabled={isComputing}
             />
