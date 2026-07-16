@@ -20,7 +20,15 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
   const [isTableOpen, setIsTableOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  const cardStakeholderIds = project.stakeholder_ids || stakeholderIds || [];
+  // `project.stakeholder_ids || stakeholderIds` looks like a reasonable
+  // "fall back to the parent product/area's stakeholders" chain, but an
+  // empty array is truthy in JS — `[] || x` always evaluates to `[]`, so
+  // that fallback silently never fired for the common case of a project
+  // with no stakeholders of its own, and the card dimmed unconditionally
+  // whenever any stakeholder was selected instead of reflecting whether its
+  // parent product/area actually included them. Fall back on empty length
+  // instead of truthiness.
+  const cardStakeholderIds = (project.stakeholder_ids?.length ? project.stakeholder_ids : stakeholderIds) || [];
   const isDimmed = useHighlightDim(cardStakeholderIds);
   const { highlightedIds } = useHighlight();
 

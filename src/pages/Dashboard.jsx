@@ -66,6 +66,18 @@ export default function Dashboard() {
               (proj) => proj.parent_area_id === area.id && !proj.parent_product_id
             );
 
+            // Areas have no stakeholder_ids of their own, so an Area's
+            // highlight state is entirely inherited from its subtree. This
+            // must include every level underneath it — not just direct
+            // products — or a stakeholder assigned to a nested project (or
+            // an orphan project with no product parent) would dim the Area
+            // card while the very card containing them stays undimmed.
+            const areaStakeholderIds = [
+              ...areaProducts.flatMap((p) => p.stakeholder_ids || []),
+              ...productsWithProjects.flatMap((p) => p.projects.flatMap((proj) => proj.stakeholder_ids || [])),
+              ...orphanProjects.flatMap((p) => p.stakeholder_ids || []),
+            ];
+
             return (
               <AreaCard
                 key={area.id}
@@ -74,7 +86,7 @@ export default function Dashboard() {
                 orphanProjects={orphanProjects}
                 onExpand={() => handleExpand(area)}
                 productCount={areaProducts.length}
-                stakeholderIds={areaProducts.flatMap((p) => p.stakeholder_ids || [])}
+                stakeholderIds={areaStakeholderIds}
               />
             );
           })}

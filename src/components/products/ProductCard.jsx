@@ -33,7 +33,15 @@ export default function ProductCard({ product }) {
 
   const { setNodeRef, isOver } = useDroppable({ id: product.id, data: { type: "product", id: product.id } });
 
-  const isDimmed = useHighlightDim(product.stakeholder_ids || []);
+  // Mirrors the Area-level aggregation: a Product's own stakeholder_ids
+  // alone isn't enough to decide whether it should dim, since a stakeholder
+  // is just as often assigned directly to one of its projects as to the
+  // product itself.
+  const productStakeholderIds = [
+    ...(product.stakeholder_ids || []),
+    ...projects.flatMap((p) => p.stakeholder_ids || []),
+  ];
+  const isDimmed = useHighlightDim(productStakeholderIds);
 
   const projectIds = projects.map((p) => p.id);
   const productTasks = allTasks.filter((t) => projectIds.includes(t.project_id));

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Plus, X, Trash2, GripVertical } from "lucide-react";
+import { Plus, X, Trash2, GripVertical, Pencil } from "lucide-react";
 import { useStakeholders, useDeleteStakeholder, useUpdateStakeholder } from "@/hooks/useStakeholders";
 import { useDepartments, useCreateDepartment, useRenameDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useProducts } from "@/hooks/useProducts";
@@ -100,16 +100,28 @@ function StakeholderRow({ stakeholder, departmentNames, isHighlighted, onToggleH
 }
 
 // Rename/delete toolbar for a real Department record — kept out of the
-// AccordionTrigger (which is itself a <button>) so the inline-editable name
-// and the delete <button> here aren't invalid nested-interactive-content.
+// AccordionTrigger (which is itself a <button>, and already shows the
+// department name) so the delete <button> here isn't invalid
+// nested-interactive-content, and so the name isn't shown a second time.
+// Renaming is click-to-reveal, matching ChatSessionList's session rename.
 function DepartmentToolbar({ department, memberCount }) {
   const renameDepartment = useRenameDepartment();
   const deleteDepartment = useDeleteDepartment();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(department.name);
 
-  const { value: name, handleInput } = useEditableField(
-    department.name,
-    (value) => value.trim() && renameDepartment.mutate({ id: department.id, name: value.trim() })
-  );
+  const startRenaming = () => {
+    setRenameValue(department.name);
+    setIsRenaming(true);
+  };
+
+  const commitRename = () => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== department.name) {
+      renameDepartment.mutate({ id: department.id, name: trimmed });
+    }
+    setIsRenaming(false);
+  };
 
   const handleDelete = () => {
     confirmThen(
@@ -118,17 +130,30 @@ function DepartmentToolbar({ department, memberCount }) {
     );
   };
 
+  if (isRenaming) {
+    return (
+      <div className="flex items-center gap-2 pb-2 mb-2 border-b border-border">
+        <input
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRename();
+            if (e.key === "Escape") setIsRenaming(false);
+          }}
+          autoFocus
+          className="flex-1 min-w-0 text-xs px-2 py-1 bg-background border border-input rounded outline-none"
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-border">
-      <span
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        className="text-xs font-medium outline-none focus:ring-1 focus:ring-primary/40 rounded cursor-text flex-1 min-w-0 truncate"
-      >
-        {name}
-      </span>
-      <button onClick={handleDelete} aria-label="Delete department" className="shrink-0 text-muted-foreground hover:text-destructive">
+    <div className="flex items-center justify-end gap-3 pb-2 mb-2 border-b border-border">
+      <button onClick={startRenaming} aria-label="Rename department" className="text-muted-foreground hover:text-foreground">
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+      <button onClick={handleDelete} aria-label="Delete department" className="text-muted-foreground hover:text-destructive">
         <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
