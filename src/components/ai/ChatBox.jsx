@@ -274,7 +274,7 @@ export default function ChatBox({ activeProjectId }) {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="E.g., Kill everything / Delete all / Build a new..."
+              placeholder="E.g., Hello... / PLease add... / File a report for..."
               className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
               disabled={isComputing}
             />
