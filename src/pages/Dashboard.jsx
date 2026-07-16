@@ -8,6 +8,7 @@ import { useFilter } from "@/lib/FilterContext";
 import AreaCard from "@/components/areas/AreaCard";
 import AreaModal from "@/components/areas/AreaModal";
 import CreateModal from "@/components/modals/CreateModal";
+import ProductConnectionLines from "@/components/products/ProductConnectionLines";
 
 export default function Dashboard() {
   const { data: areas = [], isLoading: areasLoading } = useAreas();
@@ -128,6 +129,7 @@ export default function Dashboard() {
         {expandedArea && (
           <AreaModal area={expandedArea} onClose={handleClose} />
         )}
+        <ProductConnectionLines projects={projects} />
       </div>
     </DndContext>
   );

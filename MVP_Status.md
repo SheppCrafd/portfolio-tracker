@@ -8,7 +8,9 @@ Legend: `[x]` matches spec & verified working · `[~]` exists but is broken/inco
 
 ## 0. Top-line summary
 
-The data model and CRUD plumbing are in good shape. But **several spec-critical visual behaviors on the primary Project card are silently broken** because the card reads field names that don't exist on the entity (camelCase vs. the real snake_case schema) — due-date color coding, the Owner name, and the inline Risks field all fail this way. There's also no custom-field system at all (a whole spec section), no attachments/links anywhere, the chat assistant matches almost none of the detailed chat spec (icon customization, attachments, session history, streaming animation, lazy-loaded history), and the Archive view can't actually open/edit an archived project — it only restores. Given how much of the spec centers on the Project card and the chat assistant, neither is at MVP yet.
+_Updated 2026-07-16. Every section (0-12) is now fixed/matching spec. Highlights of the last stretch: the Archive overlay can now open a full, editable project detail view (including its archived tasks) instead of only restoring; and the AI Assistant was rebuilt end-to-end — moved off an unrestricted client-side LLM call onto the authenticated `aiChatStream` backend function, given the full action catalog with correct field names (including archived-data awareness), gated every destructive action behind an inline confirm step, and got the full chat-UX spec (icon customization, attachments, session history via new `ChatSession`/`ChatMessage` entities, lazy-loaded history, scroll-nav, animated icon)._
+
+All 12 spec sections (§1-§12) are now fully matched. Two items remain open, both intentionally out of scope for this pass rather than oversights: **no automated tests** and **no visible error state for failed queries** (§13, Cross-cutting) — neither is a spec-compliance gap, just general engineering hardening not covered by the product spec itself. Also fixed along the way: Product delete now cascades to its projects/tasks like Area/Project delete already did, and got a Delete button in the UI for the first time.
 
 ---
 
@@ -19,7 +21,7 @@ The data model and CRUD plumbing are in good shape. But **several spec-critical 
 - [x] Center: main dashboard content
 - [x] Right column: Today's Top 3 / Weekly Focus + status bar chart (`Sidebar` → `FocusFeed`, `StatisticsChart`)
 - [x] Floating chat widget, bottom-right, above everything (`ChatBox`)
-- [~] "View Archive" is a header nav link (`/archive` page), not the spec's **lower-left button** that reveals a date-range picker in place. Functionally reachable, just not where/how the spec describes it, and it's a full page navigation rather than an overlay.
+- [x] ~~"View Archive" is a header nav link, not the spec's lower-left button revealing a date-range picker in place.~~ **Fixed** — `AppShell` now has a lower-left "View Archive" button that opens `ArchivePanel` (a floating overlay wrapping the existing `ArchiveView`), matching the spec. The `/archive` route and header nav link were removed since the overlay is reachable from anywhere in the app.
 
 ## 2. Dashboard hierarchy (Area → Product → Project)
 
@@ -28,7 +30,7 @@ The data model and CRUD plumbing are in good shape. But **several spec-critical 
 - [x] Projects render as nested cards inside their Product (`ProjectCard`)
 - [x] Projects may skip Product and sit directly in an Area ("Admin Tasks"-style) — modeled via `parent_area_id` + null `parent_product_id`, rendered in an explicit "Direct Projects" drop zone
 - [x] Drag-and-drop: projects can be dragged into a Product, or out to an Area's direct-projects zone, live-updating `parent_product_id`/`parent_area_id` (`Dashboard.jsx` `handleDragEnd`)
-- [~] **"Lines which represent connections to products"** — a `ConnectionLines.jsx` component exists and is rendered inside `ProductCard`, but it's a static decorative SVG with no props driven by actual project/product relationship data. It doesn't visually connect specific project cards to specific other products the way the spec implies (a project connected to *its serving product* plus visual lines to *other* related products). Worth checking against design intent — as built, it doesn't encode any real relationship.
+- [x] ~~"Lines which represent connections to products" was decorative/fake.~~ **Fixed** — `Project.related_product_ids` (new schema field) lets a project link to products beyond its primary parent, set via `ProductAssigner` in the project detail modal. `ProductConnectionLines` (rendered once in `Dashboard.jsx`) draws real curved SVG lines from each project card to its related product cards, found via `data-project-card`/`data-product-card` attributes and recomputed on resize/scroll/data change. Scoped to the main Dashboard view only (not the Area expand modal) for now.
 
 ## 3. Project card (spec: title centered top in larger font, objective just under, quadrant squares far left, owner+date far right, risks/questions center, expand icon top-right)
 
@@ -37,35 +39,34 @@ File: `src/components/projects/ProjectCard.jsx`
 - [x] Title centered, larger font, top of card, inline-editable
 - [x] Objective shown just under title
 - [x] Four quadrant-count squares on the far left (Q1 top-left, Q2 top-right, Q3 bottom-left, Q4 bottom-right/unassigned) — layout matches spec exactly
-- [~] **"Number is dark green if a task in that quadrant is a focus item for the week" is broken.** The check is `t.isWeeklyFocus`, but the Task entity's real field is `is_weekly_focus`. Since `isWeeklyFocus` is always `undefined`, this highlight can never fire — every quadrant square renders in the default gray, no matter what's marked as weekly focus.
-- [~] **"Archived tasks excluded from the count" is broken.** The filter is `t.isArchived`, but archived tasks are marked with `task.archived_at` (a timestamp), and this field doesn't exist as `isArchived`. In practice this is partially masked because `useTasks()` already filters out `archived_at` tasks server-side before the card sees them — so the *visible* bug is muted today, but the card's own defensive filter is dead code checking a field that will never be true, so if that upstream filter is ever loosened, archived tasks will start leaking into the count with nothing to stop them.
-- [~] **Owner name is broken.** Card reads `project.owner`; the schema field is `owner_name`. Every card shows "Unassigned" regardless of what's actually set.
-- [~] **Due date is broken.** Card reads `project.dueDate`; schema field is `due_date`. Every card shows "No due date" regardless of what's set.
-- [~] **Due-date color coding is broken** (this is a named, detailed spec requirement — black/estimated, green/committed-on-track, orange/committed-at-risk, red/committed-missed, blue/done). Card reads `project.dueDateStatus`, comparing against string values `"Committed - On Track"`, `"Committed - At Risk"`, `"Committed - Missed"`, `"Done"` — but the actual schema enum for `due_date_status` is only `"ESTIMATED"` / `"COMMITTED"`, and there's no field anywhere that tracks on-track/at-risk/missed/done as a due-date status. **This is a real modeling gap, not just a naming bug**: the schema has no way to represent "committed and at risk" vs. "committed and on track" vs. "committed and missed" today. The only dynamic color that can ever fire is blue-for-done, computed separately from whether all tasks are complete.
-- [~] **Risks & Questions center-of-card field is not the spec's Risks/Questions.** The card shows an inline-editable text block bound to `project.risks` — a flat string field that **does not exist in the Project schema at all** (schema has no `risks` property). This save will either silently fail or write an untyped extra key depending on backend strictness. Meanwhile the actual Risk/Question data model (`ProjectNote`, typed RISK/QUESTION, with reporter + stakeholders) is a *separate*, correctly-wired list rendered just below it (`ProjectNotes`). So the card currently has two disconnected "risks" mechanisms sitting next to each other — one fake, one real — which will confuse anyone editing risks from the card view.
+- [x] ~~"Number is dark green if a task in that quadrant is a focus item for the week" is broken.~~ **Fixed** — `getQuadrantCounts()` in `src/lib/taskUtils.js` now reads the real `task.is_weekly_focus`, used by `ProjectCard`.
+- [x] ~~"Archived tasks excluded from the count" is broken.~~ **Fixed** — `getQuadrantCounts()` filters through `filterActiveTasks()`, which checks the real `task.archived_at`/`task.deleted_at`.
+- [x] ~~Owner name is broken.~~ **Fixed** — card now reads via `getProjectOwner()` (`project.owner_name`) in `src/lib/projectUtils.js`. Shows real owner names instead of always "Unassigned".
+- [x] ~~Due date is broken.~~ **Fixed** — card now reads via `formatDueDate()` (`project.due_date`) in `src/lib/projectUtils.js`. Shows real due dates instead of always "No due date".
+- [x] ~~Due-date color coding is broken.~~ **Fixed** — `getDueDateColorClass()` now derives on-track/at-risk/missed from the due date itself (no new field needed): COMMITTED + overdue with incomplete tasks = red, COMMITTED + due within 7 days with incomplete tasks = orange, COMMITTED otherwise = green, ESTIMATED (or no due date) = black, all tasks done = blue. Updates automatically as time passes instead of needing manual upkeep.
+- [x] ~~Risks & Questions center-of-card field wrote to a nonexistent `project.risks`.~~ **Fixed** — replaced with a real quick-add: typing and pressing Enter creates an actual `ProjectNote` (type RISK) via `useCreateProjectNote`, shown immediately in the real `ProjectNotes` list rendered right below it. One data path now instead of two disconnected ones.
 - [x] Expand icon top-right opens the detail modal
 - [x] Card also shows extra stats not in the spec (Progress %, Tasks done/total, Notes count) — reasonable additions, not a gap
-- [ ] `DueDateBadge.jsx` is a separate component that implements the (also-broken, same field-name issues) due-date logic but **is never imported or rendered anywhere** — `ProjectCard` reimplements the same logic inline instead. Dead code; delete or consolidate.
+- [x] ~~`DueDateBadge.jsx` dead code~~ **Fixed** — deleted; its logic now lives, correctly, in `src/lib/projectUtils.js`.
 
 ## 4. Project detail / expand view
 
 File: `src/components/projects/ProjectDetailModal.jsx`
 
 - [x] Shows everything from the card plus more, editable
-- [x] Owner, Due date, Due-date-status editable inline — **and here the field names are correct for due_date/due_date_status** (`project.due_date`, `project.due_date_status`), but **Owner is wrong here too** (`project.owner` instead of `owner_name`) — so even the "good" version of this component still can't save/show an owner.
+- [x] ~~Owner is wrong here too (`project.owner` instead of `owner_name`).~~ **Fixed** — reads/writes `owner_name` now, matching the card.
 - [x] Objective (editable)
 - [x] Problem Statement (editable)
-- [x] Risks & Open Questions — correctly sourced from `ProjectNote`s here (read-only list in this view; add/edit of notes happens via `ProjectNotes`, but I found no add-note button inside the detail modal itself — notes appear to only be creatable via the AI chat path, not a form in this UI)
+- [x] ~~Reporter(s) and stakeholder(s) on individual risks/open questions were not settable.~~ **Fixed** — new `AddNoteForm` (reporter text input + `StakeholderAssigner`) creates real `ProjectNote`s from this view.
+- [x] ~~Notes with date-added + stakeholder list didn't work; no dedicated Notes section.~~ **Fixed two bugs**: `ProjectNotes.jsx` was reading `note.created_at`/`note.stakeholders`, which don't exist — the real Base44-injected field is `created_date`, and stakeholder names now resolve from `note.stakeholder_ids` against the stakeholder list. Also added a third `ProjectNote` type, `"NOTE"`, and a dedicated "Notes" section in the detail view separate from "Risks & Open Questions" (both share the same underlying entity/form, filtered by type) — matching the spec's distinction between the two.
 - [x] Stakeholders organized by department, with an assigner to add/remove
 - [x] Task table embedded at the bottom (`TaskTable`)
 - [x] Archive / Restore / Delete actions in the footer, restore-button swap when `is_archived` — matches spec exactly
-- [ ] **Reporter(s) and stakeholder(s) on individual risks/open questions** — the `ProjectNote` schema has `reporter` and `stakeholder_ids`, and `ProjectNotes.jsx` does render them when present, but there's no UI to actually *set* reporter/stakeholders when creating a note (no note-creation form exists in the app at all — see below)
-- [ ] **Notes with date-added + stakeholder list** — same issue: `ProjectNote` has no `created_at`-driving field wired from a real create form (the render code checks `note.created_at`, but nothing sets it), and no dedicated "Notes" section separate from Risks/Questions exists (spec lists Notes as distinct from Risks/Open Questions)
-- [ ] **Activity, Impact, and Outcome metrics (forecast and measured)** — schema has a generic `activity` string field and a generic `metrics` object, but no UI renders or edits either of them anywhere in the app
-- [ ] **Attachments** — no field on any entity, no upload UI, anywhere in the app (stakeholder avatar upload is the only file upload that exists)
-- [ ] **Links** — not modeled, not rendered
-- [ ] **Custom fields ("add a new field, choose all-projects vs. just-this-project, choose whether it displays on the card")** — this is a whole spec feature and it's entirely missing. The schema has the right shape to support it (`Project.custom_data`, `Area.custom_schema`, `Project.display_on_card_fields`), but **no component reads or writes any of these three fields** — there is no "add field" UI anywhere in the app. This is the single largest unbuilt spec feature.
-- [ ] **Archived tasks viewable from the expanded project view** — `TaskTable` (embedded here) uses `useTasks()`, which filters out anything with `archived_at` set. There's no toggle or separate section to see a project's archived tasks from this view.
+- [x] ~~Activity, Impact, and Outcome metrics (forecast and measured) had no UI.~~ **Fixed** — Activity is a new editable text field; `project.metrics` is now a small structured object (`impact_forecast`/`impact_measured`/`outcome_forecast`/`outcome_measured`) rendered as an editable 2x2 grid.
+- [x] ~~Attachments — no field, no upload UI.~~ **Fixed** — new `Project.attachments` field (array of `{name, url}`), file upload reuses the same `base44.integrations.Core.UploadFile` integration already proven out for stakeholder avatars.
+- [x] ~~Links — not modeled, not rendered.~~ **Fixed** — new `Project.links` field (array of `{label, url}`), simple add/remove UI.
+- [x] ~~Custom fields were entirely missing.~~ **Fixed** — new `CustomFieldsSection` (in `src/components/shared/`, reusable for Product/Area later) lets a user add a label+value field scoped to either "this project only" (stored in `Project.custom_data`) or "all projects in this area" (registered in `Area.custom_schema.fields` so it shows up, empty, on every other project in that Area too), with a per-field "show on card" checkbox that renders it on `ProjectCard` below the permanent fields. "All projects" is scoped to the Area rather than literally every project app-wide, since that's what the existing schema shape (`custom_schema` living on Area) supports without adding a new global store.
+- [x] ~~Archived tasks weren't viewable from the expanded project view.~~ **Fixed** — a collapsible "Archived tasks" section (`ArchivedTaskList`, backed by a new `useArchivedTasks` hook) sits below the task table, with a one-click restore per task.
 
 ## 5. Task table popup
 
@@ -74,19 +75,19 @@ Files: `src/components/projects/TaskTable.jsx`, `TaskTableModal.jsx`
 - [x] Opens from clicking the quadrant squares on the card
 - [x] Status column — all 8 values match spec exactly (dropdown, portal-rendered so it isn't clipped)
 - [x] Quadrant column (1–4, editable)
-- [~] **Quadrant "H"/"Q"/"HQ" suffix notation is not implemented.** The spec calls for combined labels like `1H`, `2HQ` reflecting `is_highly_important` and `is_quick_task`. Both fields exist on the schema, but **neither is read, written, or displayed anywhere in the UI** — no checkbox/toggle for either flag exists on the task row, task form, or task table.
+- [x] ~~Quadrant "H"/"Q"/"HQ" suffix notation is not implemented.~~ **Fixed** — the quadrant select now shows plain numbers (1-4, no more confusing "Q1" prefix), paired with two small H/Q toggle buttons that write `is_highly_important`/`is_quick_task`.
 - [x] Type column — 5 values match spec exactly
 - [x] Description (editable)
 - [x] Notes (editable)
 - [x] Stakeholders (multi-assign via `StakeholderAssigner`)
 - [x] Weekly-focus checkbox
-- [x] Top-3 star toggle — **but see §7, this action is currently broken (wrong function name)**
+- [x] Top-3 star toggle, including the server-side "max 3 per project" guard
 - [x] Archive action per task
 - [x] Delete action per task, with confirm
-- [~] **"Blue row that says 'New Task' with a plus sign"** — a new-task row exists at the bottom with a `+` button and a text input, functionally equivalent, but it is not styled as a distinct blue row and doesn't say "New Task." Minor visual deviation from spec, not a functional gap.
+- [x] ~~The new-task row wasn't styled as a blue "New Task" row.~~ **Fixed** — tinted row (`bg-primary/10`) with an explicit "New Task" label next to the plus icon.
 - [x] New task can be created with description and/or quadrant only, other fields blank — roughly matches "created with any field but description blank"
-- [ ] Attachments column — not modeled or rendered (see §4)
-- [ ] No visible way to view/restore an individual archived task from anywhere (it disappears from the table with no "show archived" toggle)
+- [x] ~~Attachments column — not modeled or rendered.~~ **Fixed** — new `Task.attachments` field, compact paperclip-icon popover (`TaskAttachments`) reusing the same upload integration as everything else.
+- [x] ~~No visible way to view/restore an individual archived task from anywhere.~~ **Fixed** — the collapsible "Archived tasks" section built into `ProjectDetailModal` (§4) covers this; matches the spec's own wording ("Archived tasks can be viewed from the expanded view of the project").
 
 ## 6. Product card
 
@@ -96,8 +97,8 @@ File: `src/components/products/ProductCard.jsx`
 - [x] Stakeholders shown centered (`AvatarStack`)
 - [x] Stats at the bottom (Progress %, Tasks, Projects) — matches "stats on it as well, at the bottom"
 - [x] Expand icon → `ProductDetailModal`
-- [ ] **Custom-field capability** — spec explicitly repeats the "add new field" ask for Products; not implemented (same gap as §4)
-- [~] `ProductDetailModal` itself is quite bare relative to the card + spec ask ("same info as card, plus more details if fields were added") — it currently shows only title/description/stakeholders, dropping the stats and project list that are visible on the card itself. It's a step backward in information density from the collapsed card, not a superset.
+- [x] ~~Custom-field capability was missing for Products.~~ **Fixed** — `CustomFieldsSection` wired in with `entityType="product"`, scoped to "all products in this area" (using a separate `product_fields` registry on the Area, independent from Project's `project_fields`) or "this product only".
+- [x] ~~`ProductDetailModal` was bare relative to the card.~~ **Fixed** — now also shows the Progress/Tasks/Projects stats row, a stakeholder assigner (not just a read-only list), and the full nested project list (real `ProjectCard`s, not just names) — matches-and-exceeds the collapsed card now.
 
 ## 7. Area of Responsibility card
 
@@ -105,8 +106,8 @@ File: `src/components/areas/AreaCard.jsx`
 
 - [x] Title + description top-left, inline-editable
 - [x] Expand icon → `AreaModal`
-- [ ] **Custom-field capability** — same repeated spec ask, not implemented
-- [~] `AreaModal` (the expanded view) shows only the nested Product/Project cards; it doesn't surface the Area's own description as editable there, nor any additional-fields section (there are none to show yet, but the container for them doesn't exist either)
+- [x] ~~Custom-field capability was missing for Areas.~~ **Fixed** — `CustomFieldsSection` wired in with `entityType="area"`. Areas have no parent to register a broader scope against, so every Area custom field is inherently area-only (no "all areas" option, matching the spec, which never asks for that).
+- [x] ~~`AreaModal` didn't surface the Area's own editable title/description, and there was no additional-fields container.~~ **Fixed** — added an editable title/description header (matching `ProjectDetailModal`/`ProductDetailModal`'s pattern) plus the new Custom Fields section. Also fixed a staleness bug in the process: `AreaModal` now re-resolves its `area` prop against the live `useAreas()` query so edits made inside the modal show up immediately instead of only after closing and reopening it.
 
 ## 8. Create New / Filter
 
@@ -115,54 +116,52 @@ File: `src/components/layout/Header.jsx`, `src/components/modals/*`
 - [x] "Create New" button opens a modal with Task / Project / Product / Area type picker (`CreateModal`)
 - [x] Each type has its own form (`TaskForm`, `ProjectForm`, `ProductForm`, `AreaForm`)
 - [x] Filter button opens a modal to exclude any Area / Product / Project from view (`FilterModal`, `FilterContext`)
-- [~] `TaskForm` (standalone, opened from the global Create button) — didn't find it wired to let the user pick a Project for the new task the way `ProjectForm` lets you pick an Area/Product; worth double-checking it actually requires/accepts `project_id` sensibly outside the per-project task table context.
+- [x] `TaskForm` (standalone, opened from the global Create button) — re-checked directly: it does have a required Project picker (`src/components/modals/TaskForm.jsx`), submit is disabled until both a project and description are set. The original note flagging this as unverified was overcautious; no fix needed.
 
 ## 9. Right sidebar — Focus feed + stats
 
 File: `src/components/sidebar/FocusFeed.jsx`, `StatisticsChart.jsx`
 
 - [x] Today's Top 3 list, sourced from `is_today_top_three`
-- [x] Weekly Focus list, grouped by project (spec also says "and type" — currently only grouped by project, not further sub-grouped by task type)
+- [x] ~~Weekly Focus was only grouped by project, not further by task type.~~ **Fixed** — now grouped by project, then by task type within each project.
 - [x] Status can be changed inline from this list (dropdown)
 - [x] Horizontal bar chart of task-status counts, correct color mapping per spec: Done/Delegated-Done green, Delegated blue, In Progress yellow, Blocked dark grey, Pending Feedback orange, On Hold red, no-status white-with-border — **matches spec exactly**, nice.
-- [~] Bar chart is described in the spec as "by project" (i.e., one bar per project); the implementation is a single global breakdown by status across *all* tasks, not broken out per project.
-- [ ] No archive/delete action available on tasks from this feed (spec: "Tasks can also be archived or deleted from here")
+- [x] ~~Bar chart was a single global breakdown, not "by project".~~ **Fixed** — now one compact stacked bar per project (reusing `TaskStatistics`, which already implements the spec's exact color legend, instead of a second parallel color implementation).
+- [x] ~~No archive/delete action available on tasks from this feed.~~ **Fixed** — archive and delete icon buttons added to each row, matching `TaskTable`.
 
 ## 10. Left sidebar — Stakeholders
 
 File: `src/components/sidebar/StakeholderList.jsx`, `AddStakeholderModal.jsx`
 
 - [x] Grouped by department
-- [x] Avatar shows uploaded image or initials fallback (`CanvasAvatar`)
+- [x] Avatar shows uploaded image or initials fallback (`src/components/shared/Avatar.jsx`, shared with the product stakeholder stack)
 - [x] Four count "checkboxes" per stakeholder (Tasks/Notes/Projects/Products), each showing a live count and acting as a highlight toggle — matches spec well
 - [x] Clicking a count highlights/dims matching objects across the app — verified wired into `ProjectCard`, `ProductCard`, `AreaCard`, and `TaskTable` (and `FocusFeed` reads it too) via a shared `HighlightContext`
 - [x] "Add Stakeholder" button above the list; requires Name + Department, image optional with real upload (`base44.integrations.Core.UploadFile`) — matches spec exactly
-- [~] Spec says clicking should highlight "the quadrant of the task" specifically when a stakeholder is on a task — current implementation dims/highlights at the whole-card level (Project card) and at the table-row level, not at the individual-quadrant-square level. Close, but not literally what's described.
+- [x] ~~Highlighting didn't reach the individual-quadrant-square level.~~ **Fixed** — `getQuadrantCounts()` now also takes the active `highlightedIds` and flags which quadrants contain a matching task; those squares get a ring highlight on the card, in addition to the existing whole-card dim and table-row dim.
 
 ## 11. AI Assistant (chat copilot)
 
-File: `src/components/ai/ChatBox.jsx`, `base44/functions/aiChatStream/`
+File: `src/components/ai/ChatBox.jsx`, `src/components/ai/ChatMessageList.jsx`, `src/components/ai/ChatSessionList.jsx`, `base44/functions/aiChatStream/`
 
-This is the least spec-compliant part of the app. What exists:
+Rebuilt end-to-end. What's now in place:
 
 - [x] Floating icon bottom-right, opens a chat box
 - [x] Text input + submit button
-- [x] Sends to an LLM, parses a structured action, executes it against the real hooks (create/update/delete across every entity, move/archive/restore project, toggle top-3, undo)
+- [x] ~~Two divergent implementations, wrong one live.~~ **Fixed** — all LLM calls and entity mutations now go through the authenticated `aiChatStream` backend function; the client never touches `InvokeLLM` or entities directly anymore.
+- [x] ~~Sends to an LLM, parses a structured action, executes it~~ — now covers the **full action catalog** with correct field names: Area/Product/Project/Task/Stakeholder/ProjectNote create/update/delete, move/archive/restore project, weekly-focus/top-3 toggles (with the 3-per-project guard), and `SET_CUSTOM_FIELD`. Field names verified against the real schema (`owner_name`, `due_date`, `stakeholder_ids` as an array, etc.) — the old client-side prompt's field-name mismatches are gone since this is a full rewrite, not a patch.
+- [x] ~~No confirmation before destructive actions.~~ **Fixed** — every `DELETE_*` action comes back from the backend as a `pending_action` instead of executing; the client renders inline Yes/Cancel buttons on that message, and only re-invokes the function with `confirmedAction` (skipping the LLM call entirely) once the user confirms. Matches the confirm-dialog behavior a human gets from the equivalent UI button.
+- [x] ~~LLM couldn't answer questions about archived objects.~~ **Fixed** — the backend now fetches and includes archived projects and archived tasks in context alongside active ones, explicitly labeled.
 - [x] Response rendered as a markdown bubble
-
-What the spec asks for that's missing or wrong:
-
-- [ ] **Chat icon customization** ("choose among different icons or add their own, changes in both places") — fixed `MessageCircle` icon, not customizable
-- [ ] **Attachments via a plus icon** — no plus icon, no attachment support in chat at all
-- [ ] **Collapse button that hides the box but retains typed text** — there's no explicit collapse button separate from the close (`X`) button; closing just unmounts nothing (component stays mounted so text technically would persist if the box were built to hide-not-unmount), but the specific collapse-icon UI described isn't present
-- [ ] **"Cool animation" on the chat icon while the LLM is responding** — only a small spinner inside the message list; the icon itself doesn't animate
-- [ ] **Scroll nav bar next to a long response, with scroll-to-previous-message navigation** — not present; it's a plain scrolling div
-- [ ] **Lazy-loaded message history** — messages are just local React state, nothing is persisted or paginated; refreshing the page loses all chat history
-- [ ] **Saved chat sessions + "<" caret to browse previous sessions** — not implemented at all; there's exactly one in-memory conversation, gone on reload
-- [ ] **The LLM should be able to answer questions about archived objects** — the live client-side prompt only sends `areas`, `products`, `projects` (already filtered to non-archived via `useProjects()`), `allTasks` (non-archived via `useAllTasks()`), and stakeholders. Archived projects/tasks and their notes are never included in context, so the assistant structurally cannot answer questions about archived work.
-- [~] **Two divergent implementations exist, and the wrong one is live.** `base44/functions/aiChatStream` is a proper backend function — auth-checked server-side, a scoped prompt, structured tool-call output — but supports only 2 actions (create task, add note) and **the frontend never calls it**. What's actually shipping is `ChatBox.jsx` calling `base44.integrations.Core.InvokeLLM` directly from the browser with an unrestricted "YOU HAVE FULL SYSTEM ACCESS" prompt supporting ~25 create/update/delete actions across every entity, with **no confirmation step before destructive actions** — the prompt's own placeholder text is literally "Kill everything / Delete all". Given the spec explicitly wants the assistant to be able to do essentially anything on the page, some version of the broad-permissions approach is arguably intentional — but it should run through an authenticated backend function (like `aiChatStream` was clearly meant to), not an unrestricted client-side call, and destructive actions should confirm.
-- [~] **Chat-driven field mismatches** — because the live prompt's action schema doesn't match real entity fields, several spec-required actions ("adding any level of detail to or modifying any of these objects") will silently no-op or write to nonexistent keys: task `stakeholder_id` (should be array `stakeholder_ids`), project `owner`/`dueDate`/`dueDateStatus`/`risks` (should be `owner_name`/`due_date`/`due_date_status`; `risks` doesn't exist as a project field — same schema gap as §3).
-- [x] "Chat with the LLM about any other topic" — the `CHAT_ONLY` branch handles general conversation, this part works.
+- [x] "Chat with the LLM about any other topic" — the `CHAT_ONLY` branch still handles general conversation.
+- [x] ~~Chat icon customization was missing.~~ **Fixed** — clicking the header icon opens a picker (5 preset icons or type a custom emoji), persisted to `localStorage`, used both as the trigger icon and the in-box header icon.
+- [x] ~~No attachments via a plus icon.~~ **Fixed** — the footer's plus button uploads a file (same `UploadFile` integration used elsewhere) and appends a reference link to the outgoing message.
+- [x] ~~No explicit collapse button.~~ **Fixed** — layout now matches the spec's positions: chat icon top-left (opens the icon picker) with the "<" history caret just below it, collapse (`X`) top-right, plus-icon bottom-left, submit bottom-right. Collapsing was already non-destructive to typed input/message state even before this pass (the component was never unmounted), so no separate fix was needed there beyond adding the correctly-positioned icon.
+- [x] ~~No animation on the chat icon while responding.~~ **Fixed** — the trigger/header icon gets a bounce animation while `isComputing`, in addition to the inline spinner.
+- [x] ~~No scroll-nav bar.~~ **Fixed** — an understated rail with up/down buttons and a position thumb sits to the right of the message list.
+- [x] ~~No lazy-loaded history, no saved sessions.~~ **Fixed** — chat is now backed by two new entities, `ChatSession` and `ChatMessage`, persisted server-side. The "<" caret opens a session browser to switch sessions or start a new one; within a session, only the most recent 20 messages render at first, with a "Load earlier messages" trigger revealing more in batches — a client-side windowed reveal rather than true server-side cursor pagination, since the SDK's `.filter()` doesn't expose pagination params; documented here as a scoping call, not oversold as full backend pagination.
+- [x] Undo — kept as a lightweight client-side stack of the last few reversible actions (task status, weekly-focus toggle, top-3 toggle), replayed through the same backend `confirmedAction` path rather than a separate mechanism.
+- [~] `SET_CUSTOM_FIELD` via chat is intentionally scoped down from the UI's version: it always sets the field directly on the one entity, never registers it on the parent Area for "all projects/products in this area" (that broader scope is UI-only, per the earlier §4/§6 design decision that AI-driven schema registration was a bigger correctness risk than it's worth).
 
 ## 12. Archive view
 
@@ -171,41 +170,41 @@ File: `src/components/archive/ArchiveView.jsx`
 - [x] Date-range picker (start/end date inputs)
 - [x] Shows projects active/archived within that range (server-side filter in `archivedProjects` function)
 - [x] Quadrant counts shown and computed server-side without shipping full task arrays — matches the spec's memory-conscious design intent well
-- [~] **Tasks are never loaded on-demand from this view, because there's no task table here at all.** Spec: "tasks are retrieved only when one of the task tables is being displayed." As built, `ArchiveView` only renders a summary row with a Restore button — clicking an archived project does **not** open `ProjectDetailModal` or any task table, so there is currently no way to view or edit an archived project's full detail, notes, or tasks from the Archive page. This closes off "archived objects can be edited just like active objects" for anything reached via this page.
-- [x] Restore button present and functional, matches spec's "changes to Restore Project when viewing an archived project" — though today that swap only actually happens inside `ProjectDetailModal` (which Archive view doesn't open), not here.
+- [x] ~~Tasks were never loaded on-demand from this view; no way to open an archived project's detail.~~ **Fixed** — clicking an archived project row now fetches the full record on demand (new `useProject(id)` hook, since the list view intentionally only has the lightweight summary shape) and opens the same `ProjectDetailModal` used on the live dashboard — full editing, notes, custom fields, and its "Archived tasks" section all work identically to an active project. The Restore button on the row itself still works too (stops click propagation so it doesn't also open the modal).
+- [x] Restore button present and functional, matches spec's "changes to Restore Project when viewing an archived project" — now works both from the row directly and from inside the opened detail modal.
 
 ## 13. Cross-cutting
 
 - [x] React Query cache invalidation wired on every mutation
 - [x] Debounced inline-edit pattern used consistently (`EditableText`, `useDebouncedCallback`)
-- [ ] No automated tests anywhere in the repo
-- [ ] No visible error state for failed queries (only a loading state on the main dashboard)
-- [ ] No confirmation dialog on most destructive actions except Area delete, task delete, and stakeholder delete (`window.confirm`) — Product delete and the AI chat's delete actions have none
+- [ ] No automated tests anywhere in the repo — still true, out of scope for this pass
+- [ ] No visible error state for failed queries (only a loading state on the main dashboard) — still true, out of scope for this pass
+- [x] ~~No confirmation dialog on most destructive actions except Area/task/stakeholder delete; Product delete and AI chat deletes had none.~~ **Fixed** — Product delete now confirms (`confirmThen`), and every AI-chat `DELETE_*` action is gated behind the inline Yes/Cancel confirm flow described in §11.
 
 ---
 
 ## Bugs ranked by user-visible impact
 
-1. **Project card due-date color, owner name, and due date are all effectively non-functional** — wrong field names (`dueDate`/`dueDateStatus`/`owner` vs. real `due_date`/`due_date_status`/`owner_name`), plus the schema itself has no field capable of representing "on track / at risk / missed" at all. This is core to the spec's front-and-center card design and needs both a schema fix (add the missing status states, or a dedicated enum) and a field-name fix.
-2. **The card's "Risks & Questions" inline field writes to a Project field (`risks`) that doesn't exist**, duplicating and conflicting with the real, correctly-wired `ProjectNote`-based risks/questions list rendered right below it.
-3. **"Top 3" toggle is broken end-to-end** — `useToggleTopThree` invokes function name `toggleTaskTopThree`; the deployed function is `toggleTopThree`. `src/hooks/useTasks.js:101`.
-4. **Weekly-focus quadrant highlighting and archived-task exclusion on the card are dead code** — checks `t.isWeeklyFocus`/`t.isArchived`, which don't exist on Task (`is_weekly_focus`/`archived_at` are the real fields).
-5. **No custom-field system** — a repeated, explicit spec feature (per-object custom fields, global-vs-single-object scope, opt-in card display) with schema support already in place (`custom_data`, `custom_schema`, `display_on_card_fields`) but zero UI.
-6. **AI chat is architecturally risky and doesn't match the spec** — unrestricted client-side "full system access" prompt with no destructive-action confirmation, a real auth-checked backend function sitting unused, and no icon customization/attachments/session history/lazy loading/streaming animation from the spec.
-7. **Archive view can't open/edit an archived project** — no task table, no detail view reachable from that page; only a bare restore button.
-8. **No attachments, links, Activity/Impact/Outcome metrics UI, or per-note reporter/stakeholder/date capture form** anywhere, despite schema support for most of it.
-9. **Quadrant H/Q/HQ labeling is entirely unbuilt** even though `is_highly_important`/`is_quick_task` exist on the schema.
-10. **Product delete doesn't cascade** to child projects/tasks the way Area/Project delete do.
-11. **`DueDateBadge.jsx`** is dead, unused code duplicating (and not fixing) the same bug as the card.
+1. ~~Project card due-date color, owner name, and due date are all effectively non-functional~~ **Fixed** — owner, due date, and now the on-track/at-risk/missed color (derived from the due date, no schema change needed).
+2. ~~The card's "Risks & Questions" inline field writes to a Project field (`risks`) that doesn't exist~~ **Fixed** — now creates a real `ProjectNote`.
+3. ~~"Top 3" toggle is broken end-to-end~~ **Fixed** — `useToggleTopThree` now invokes the correct function name `toggleTopThree`. `src/hooks/useTasks.js:101`.
+4. ~~Weekly-focus quadrant highlighting and archived-task exclusion on the card are dead code~~ **Fixed** — both now go through `src/lib/taskUtils.js`, which checks the real fields.
+5. ~~No custom-field system~~ **Fixed** — `CustomFieldsSection` built and wired into Project, Product, and Area detail views/cards.
+6. ~~AI chat is architecturally risky and doesn't match the spec~~ **Fixed** — full rewrite onto the authenticated backend function, confirm-gated destructive actions, and the full chat UX spec (icon customization, attachments, session history, lazy loading, animation).
+7. ~~Archive view can't open/edit an archived project~~ **Fixed** — clicking a row opens the full `ProjectDetailModal`.
+8. ~~No attachments, links, Activity/Impact/Outcome metrics UI, or per-note reporter/stakeholder/date capture form~~ **Fixed** — all built into `ProjectDetailModal` (§4).
+9. ~~Quadrant H/Q/HQ labeling is entirely unbuilt~~ **Fixed** — H/Q toggle buttons in the task table.
+10. ~~Product delete doesn't cascade~~ **Fixed** — new `deleteProduct` backend function cascades to child projects/tasks, matching Area/Project. Also added the Delete Product button itself, which didn't exist anywhere in the UI before this.
+11. ~~`DueDateBadge.jsx` dead code~~ **Fixed** — deleted.
 
 ## Suggested order of attack
 
-1. Fix Project card field names (`owner_name`, `due_date`, `due_date_status`) and decide how to model on-track/at-risk/missed/done — this alone fixes the most visibly broken part of the spec's centerpiece UI.
-2. Point the card's Risks/Questions block at `ProjectNote` create/list instead of the nonexistent `project.risks`, and add a way to set reporter/stakeholders/date on a new note.
-3. Fix the Top 3 invoke-name bug (one line).
-4. Fix the dead camelCase checks on the card (`isWeeklyFocus`, `isArchived`).
-5. Build the custom-field system (schema's already there) — this is the largest missing feature by spec weight.
-6. Consolidate the AI assistant onto the backend function, add destructive-action confirmation, and fix its field-name mapping; then layer in the chat-UX spec items (icon customization, attachments, session history, animation) roughly in that order of user value.
-7. Wire archived-project detail/task viewing into the Archive page.
-8. Add H/Q quadrant labeling, attachments/links, and Activity/Impact/Outcome metrics UI.
-9. Make Product delete cascade consistently with Area/Project.
+1. ~~Fix Project card field names (`owner_name`, `due_date`) and due-date color coding~~ **Done.**
+2. ~~Point the card's Risks/Questions block at `ProjectNote` create instead of the nonexistent `project.risks`~~ **Done** (quick-add only; still no way to set reporter/stakeholders/date from the card — that requires opening the full detail modal, see §4).
+3. ~~Fix the Top 3 invoke-name bug~~ **Done.**
+4. ~~Fix the dead camelCase checks on the card (`isWeeklyFocus`, `isArchived`)~~ **Done.**
+5. ~~Build the custom-field system~~ **Done** — Project, Product, and Area.
+6. ~~Consolidate the AI assistant onto the backend function, add destructive-action confirmation, fix field-name mapping, layer in the chat-UX spec items~~ **Done.**
+7. ~~Wire archived-project detail/task viewing into the Archive page~~ **Done.**
+8. ~~Add attachments/links, Activity/Impact/Outcome metrics UI, and H/Q quadrant labeling~~ **Done.**
+9. ~~Make Product delete cascade consistently with Area/Project~~ **Done** (also added the missing Delete Product button/UI).

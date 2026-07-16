@@ -31,7 +31,11 @@ export function useUpdateProduct() {
 export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => base44.entities.Product.update(id, { deleted_at: new Date().toISOString() }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
+    mutationFn: (id) => base44.functions.invoke("deleteProduct", { productId: id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["allTasks"] });
+    },
   });
 }

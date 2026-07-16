@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { filterActiveTasks } from "@/lib/taskUtils";
+import { filterActiveTasks, isTaskArchived, isTaskDeleted } from "@/lib/taskUtils";
 
 // 1. FETCH TASKS FOR A SPECIFIC PROJECT (WITH LIVE SUBSCRIPTION POLLING)
 export function useTasks(projectId) {
@@ -27,6 +27,19 @@ export function useTasks(projectId) {
   }, [projectId, queryClient]);
 
   return query;
+}
+
+// FETCH A PROJECT'S ARCHIVED (NOT DELETED) TASKS — for viewing archived tasks
+// from the project detail view.
+export function useArchivedTasks(projectId) {
+  return useQuery({
+    queryKey: ["archivedTasks", projectId],
+    queryFn: async () => {
+      const tasks = await base44.entities.Task.filter({ project_id: projectId });
+      return tasks.filter((t) => isTaskArchived(t) && !isTaskDeleted(t));
+    },
+    enabled: !!projectId,
+  });
 }
 
 // 2. FETCH ALL ACTIVE TASKS GLOBALLY (USED BY AGENT CONTEXT & METRICS)
@@ -63,6 +76,7 @@ export function useUpdateTask() {
     mutationFn: ({ id, data }) => base44.entities.Task.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["archivedTasks"] });
       if (variables?.data?.project_id) {
         queryClient.invalidateQueries({ queryKey: ["tasks", variables.data.project_id] });
       }
@@ -99,7 +113,7 @@ export function useDeleteTask() {
 export function useToggleTopThree() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }) => base44.functions.invoke("toggleTaskTopThree", { taskId: id }),
+    mutationFn: ({ id }) => base44.functions.invoke("toggleTopThree", { taskId: id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });

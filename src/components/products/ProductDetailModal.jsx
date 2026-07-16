@@ -1,15 +1,36 @@
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import Portal from "@/lib/Portal";
 import { useStakeholders } from "@/hooks/useStakeholders";
-import { useUpdateProduct } from "@/hooks/useProducts";
+import { useUpdateProduct, useDeleteProduct } from "@/hooks/useProducts";
+import { useProjects } from "@/hooks/useProjects";
+import { useAllTasks } from "@/hooks/useTasks";
+import { useAreas, useUpdateArea } from "@/hooks/useAreas";
+import { isTaskDone } from "@/lib/taskUtils";
+import { confirmThen } from "@/lib/entityUtils";
 import EditableText from "@/components/shared/EditableText";
+import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
+import CustomFieldsSection from "@/components/shared/CustomFieldsSection";
+import ProjectCard from "@/components/projects/ProjectCard";
 
 export default function ProductDetailModal({ product, onClose }) {
   const { data: allStakeholders = [] } = useStakeholders();
+  const { data: allProjects = [] } = useProjects();
+  const { data: allTasks = [] } = useAllTasks();
+  const { data: allAreas = [] } = useAreas();
   const updateProduct = useUpdateProduct();
+  const updateArea = useUpdateArea();
+  const deleteProduct = useDeleteProduct();
+
   const stakeholders = allStakeholders.filter((s) => (product.stakeholder_ids || []).includes(s.id));
   const departments = [...new Set(stakeholders.map((s) => s.department))];
+  const area = allAreas.find((a) => a.id === product.parent_area_id);
+
+  const projects = allProjects.filter((p) => p.parent_product_id === product.id);
+  const projectIds = projects.map((p) => p.id);
+  const productTasks = allTasks.filter((t) => projectIds.includes(t.project_id));
+  const doneCount = productTasks.filter(isTaskDone).length;
+  const completionPct = productTasks.length ? Math.round((doneCount / productTasks.length) * 100) : 0;
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -27,7 +48,7 @@ export default function ProductDetailModal({ product, onClose }) {
           />
           <button onClick={onClose} className="shrink-0"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 max-w-2xl mx-auto space-y-4">
+        <div className="p-6 max-w-3xl mx-auto flex flex-col gap-6">
           <div>
             <label className="text-xs font-medium text-muted-foreground block mb-1">Description</label>
             <EditableText
@@ -38,8 +59,31 @@ export default function ProductDetailModal({ product, onClose }) {
               className="text-sm bg-card border border-border rounded-md p-2"
             />
           </div>
+
+          <div className="flex items-center justify-between border-t border-b border-border py-3">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Progress</span>
+              <span className="text-sm font-bold text-primary">{completionPct}%</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Tasks</span>
+              <span className="text-sm font-semibold text-foreground">{doneCount} <span className="text-muted-foreground font-normal">/ {productTasks.length}</span></span>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Projects</span>
+              <span className="text-sm font-semibold text-foreground">{projects.length}</span>
+            </div>
+          </div>
+
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Stakeholders</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Stakeholders</p>
+              <StakeholderAssigner
+                currentStakeholderIds={product.stakeholder_ids || []}
+                allStakeholders={allStakeholders}
+                onSave={(newIds) => updateProduct.mutate({ id: product.id, data: { stakeholder_ids: newIds } })}
+              />
+            </div>
             {departments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No stakeholders assigned.</p>
             ) : (
@@ -50,6 +94,46 @@ export default function ProductDetailModal({ product, onClose }) {
                 </div>
               ))
             )}
+          </div>
+
+          <CustomFieldsSection
+            entity={product}
+            entityType="product"
+            area={area}
+            onUpdateEntity={(data) => updateProduct.mutate({ id: product.id, data })}
+            onUpdateArea={(data) => updateArea.mutate({ id: area.id, data })}
+            areaScopeLabel="All products in this area"
+            entityScopeLabel="This product only"
+          />
+
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">Projects</p>
+            {projects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No projects yet.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {projects.map((project) => (
+                  <ProjectCard key={project.id} project={project} stakeholderIds={product.stakeholder_ids} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <button
+              onClick={() =>
+                confirmThen(
+                  `Delete product "${product.title}"? This will also delete all of its projects and their tasks. This cannot be undone.`,
+                  () => {
+                    deleteProduct.mutate(product.id);
+                    onClose();
+                  }
+                )
+              }
+              className="text-xs flex items-center gap-1.5 text-muted-foreground hover:text-destructive px-1 py-1.5 rounded transition-colors"
+            >
+              <Trash2 className="w-4 h-4" /> Delete Product
+            </button>
           </div>
         </div>
       </div>

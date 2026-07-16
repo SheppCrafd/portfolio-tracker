@@ -7,11 +7,12 @@ import TaskTableModal from "@/components/projects/TaskTableModal";
 import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
 import TaskStatistics from "@/components/shared/TaskStatistics";
 import { useTasks } from "@/hooks/useTasks";
-import { useProjectNotes } from "@/hooks/useProjectNotes";
+import { useProjectNotes, useCreateProjectNote } from "@/hooks/useProjectNotes";
+import { useStakeholders } from "@/hooks/useStakeholders";
 import { useUpdateProject } from "@/hooks/useProjects";
-import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { useEditableField } from "@/hooks/useEditableField";
 import { useHighlightDim } from "@/hooks/useHighlightDim";
+import { useHighlight } from "@/lib/HighlightContext";
 import { filterActiveTasks, getQuadrantCounts, isTaskDone } from "@/lib/taskUtils";
 import { getProjectOwner, getDueDateColorClass, formatDueDate } from "@/lib/projectUtils";
 
@@ -21,26 +22,25 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
 
   const cardStakeholderIds = project.stakeholder_ids || stakeholderIds || [];
   const isDimmed = useHighlightDim(cardStakeholderIds);
+  const { highlightedIds } = useHighlight();
 
   const { data: tasks = [] } = useTasks(project.id);
   const { data: notes = [] } = useProjectNotes(project.id);
+  const { data: allStakeholders = [] } = useStakeholders();
   const updateProject = useUpdateProject();
+  const createProjectNote = useCreateProjectNote();
 
   const { value: title, handleInput: handleTitleInput } = useEditableField(
     project.title,
     (value) => updateProject.mutate({ id: project.id, data: { title: value } })
   );
 
-  // Deliberately left as-is: writes to `project.risks`, which isn't a real
-  // schema field. This overlaps with the ProjectNote-backed risks/questions
-  // list rendered below and needs a real design decision, not a rename.
-  const debouncedSaveRisks = useDebouncedCallback(
-    (value) => updateProject.mutate({ id: project.id, data: { risks: value } }),
-    500
-  );
+  const [newNoteText, setNewNoteText] = useState("");
 
-  const handleRisksInput = (e) => {
-    debouncedSaveRisks(e.currentTarget.textContent);
+  const handleNewNoteKeyDown = (e) => {
+    if (e.key !== "Enter" || !newNoteText.trim()) return;
+    createProjectNote.mutate({ project_id: project.id, type: "RISK", content: newNoteText.trim() });
+    setNewNoteText("");
   };
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -55,7 +55,7 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
 
   const doneTasks = tasks.filter(isTaskDone);
   const projectProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
-  const quadrants = getQuadrantCounts(tasks);
+  const quadrants = getQuadrantCounts(tasks, highlightedIds);
 
   const activeTasks = filterActiveTasks(tasks);
   const allDone = activeTasks.length > 0 && activeTasks.every(isTaskDone);
@@ -65,9 +65,10 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
   const owner = getProjectOwner(project) || "Unassigned";
 
   return (
-    <div 
-      ref={setNodeRef} 
+    <div
+      ref={setNodeRef}
       style={style}
+      data-project-card={project.id}
       className={`relative bg-background border border-border rounded-lg p-3 transition-colors ${isDimmed ? "opacity-30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"}`}
     >
       <div 
@@ -97,7 +98,7 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
               key={q.quadrant}
               className={`flex items-center justify-center transition-colors ${
                 q.hasFocus ? "bg-green-800 text-white font-bold" : "bg-muted/40 text-muted-foreground"
-              }`}
+              } ${q.hasHighlightedStakeholder ? "ring-2 ring-inset ring-primary" : ""}`}
             >
               {q.count}
             </div>
@@ -117,17 +118,15 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
             {project.objective || "No objective defined"}
           </p>
 
-          <div className="mt-2 w-full max-w-[95%] bg-destructive/5 border border-destructive/15 rounded px-2 py-0.5 z-20">
-            <p className="text-[8px] font-bold text-destructive/60 uppercase tracking-wider text-left">Risks & Questions</p>
-            <p
-              className="text-[10px] text-muted-foreground text-left line-clamp-1 outline-none focus:ring-1 focus:ring-primary/40 rounded cursor-text px-0.5"
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleRisksInput}
-              placeholder="Add risks or open questions..."
-            >
-              {project.risks || ""}
-            </p>
+          <div className="mt-2 w-full max-w-[95%] bg-destructive/5 border border-destructive/15 rounded px-2 py-1 z-20">
+            <p className="text-[8px] font-bold text-destructive/60 uppercase tracking-wider text-left mb-0.5">Risks & Questions</p>
+            <input
+              value={newNoteText}
+              onChange={(e) => setNewNoteText(e.target.value)}
+              onKeyDown={handleNewNoteKeyDown}
+              placeholder="Add a risk or question and press Enter..."
+              className="w-full text-[10px] bg-transparent outline-none text-left placeholder:text-muted-foreground/60"
+            />
           </div>
         </div>
 
@@ -160,8 +159,22 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
         </div>
       </div>
 
+      {(project.display_on_card_fields || []).length > 0 && (
+        <div className="mt-2 pl-5 flex flex-wrap gap-x-3 gap-y-1">
+          {(project.display_on_card_fields || []).map((key) => {
+            const field = project.custom_data?.[key];
+            if (!field) return null;
+            return (
+              <span key={key} className="text-[10px] text-muted-foreground">
+                <span className="font-medium text-foreground">{field.label}:</span> {field.value || "—"}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       <div className="mt-2 pl-5">
-        <ProjectNotes notes={notes} />
+        <ProjectNotes notes={notes} allStakeholders={allStakeholders} />
       </div>
 
       {isTableOpen && (

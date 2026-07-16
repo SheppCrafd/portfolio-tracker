@@ -10,7 +10,6 @@ import { HighlightProvider } from '@/lib/HighlightContext';
 import { FilterProvider } from '@/lib/FilterContext';
 import AppShell from '@/components/layout/AppShell';
 import Dashboard from '@/pages/Dashboard';
-import ArchiveView from '@/components/archive/ArchiveView';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -42,7 +41,6 @@ const AuthenticatedApp = () => {
       <Routes>
         {/* Add your page Route elements here */}
         <Route path="/" element={<Dashboard />} />
-        <Route path="/archive" element={<ArchiveView />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </AppShell>

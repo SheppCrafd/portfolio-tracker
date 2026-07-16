@@ -21,8 +21,11 @@ export function filterActiveTasks(tasks = []) {
 // Eisenhower-matrix quadrant counts for the 2x2 badge on a project card.
 // Quadrant 4 also absorbs tasks with no quadrant assigned. A quadrant is
 // flagged `hasFocus` (rendered dark green) when one of its tasks is marked
-// as this week's focus.
-export function getQuadrantCounts(tasks = []) {
+// as this week's focus, and `hasHighlightedStakeholder` when the active
+// stakeholder spotlight (HighlightContext) matches a task in that quadrant —
+// the spec calls for highlighting the specific quadrant a stakeholder's task
+// lives in, not just dimming/undimming the whole card.
+export function getQuadrantCounts(tasks = [], highlightedIds = []) {
   const activeTasks = filterActiveTasks(tasks);
 
   return [1, 2, 3, 4].map((quadrant) => {
@@ -33,6 +36,9 @@ export function getQuadrantCounts(tasks = []) {
       quadrant,
       count: quadTasks.length,
       hasFocus: quadTasks.some((t) => t.is_weekly_focus),
+      hasHighlightedStakeholder:
+        highlightedIds.length > 0 &&
+        quadTasks.some((t) => (t.stakeholder_ids || []).some((id) => highlightedIds.includes(id))),
     };
   });
 }

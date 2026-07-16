@@ -1,0 +1,10 @@
+{
+  "name": "ChatSession",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    }
+  },
+  "required": []
+}

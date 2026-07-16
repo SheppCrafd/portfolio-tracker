@@ -12,6 +12,18 @@ export function useProjects() {
   });
 }
 
+// Fetches a single full Project record by id — used by the Archive view,
+// which otherwise only has the lightweight { id, title, quadrant_counts }
+// shape from the archivedProjects function and needs the full record to
+// open ProjectDetailModal.
+export function useProject(id) {
+  return useQuery({
+    queryKey: ["project", id],
+    queryFn: () => base44.entities.Project.get(id),
+    enabled: !!id,
+  });
+}
+
 export function useArchivedProjects(start, end) {
   return useQuery({
     queryKey: ["archivedProjects", start, end],

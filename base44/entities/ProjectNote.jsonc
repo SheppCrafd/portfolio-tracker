@@ -9,7 +9,8 @@
       "type": "string",
       "enum": [
         "RISK",
-        "QUESTION"
+        "QUESTION",
+        "NOTE"
       ]
     },
     "content": {

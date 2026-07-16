@@ -116,6 +116,20 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
         </div>
       </div>
 
+      {(area.display_on_card_fields || []).length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {(area.display_on_card_fields || []).map((key) => {
+            const field = area.custom_data?.[key];
+            if (!field) return null;
+            return (
+              <span key={key} className="text-[10px] text-muted-foreground">
+                <span className="font-medium text-foreground">{field.label}:</span> {field.value || "—"}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
     </article>
   );
 }

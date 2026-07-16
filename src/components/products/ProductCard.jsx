@@ -11,7 +11,6 @@ import { useHighlightDim } from "@/hooks/useHighlightDim";
 import { isTaskDone } from "@/lib/taskUtils";
 import EditableText from "@/components/shared/EditableText";
 import AvatarStack from "@/components/products/AvatarStack";
-import ConnectionLines from "@/components/products/ConnectionLines";
 import ProjectCard from "@/components/projects/ProjectCard";
 import ProductDetailModal from "@/components/products/ProductDetailModal";
 import TaskStatistics from "@/components/shared/TaskStatistics";
@@ -42,8 +41,7 @@ export default function ProductCard({ product }) {
   const completionPct = productTasks.length ? Math.round((doneCount / productTasks.length) * 100) : 0;
 
   return (
-    <div className={`relative z-10 bg-card border border-border rounded-xl p-4 overflow-hidden ${isDimmed ? "opacity-30" : ""}`}>
-      <ConnectionLines />
+    <div data-product-card={product.id} className={`relative z-10 bg-card border border-border rounded-xl p-4 overflow-hidden ${isDimmed ? "opacity-30" : ""}`}>
       <button
         onClick={() => setIsDetailOpen(true)}
         className="absolute top-3 right-3 z-20 text-muted-foreground hover:text-foreground"
@@ -105,6 +103,20 @@ export default function ProductCard({ product }) {
           <span className="text-sm font-semibold text-foreground">{projects.length}</span>
         </div>
       </div>
+
+      {(product.display_on_card_fields || []).length > 0 && (
+        <div className="relative z-[1] mt-3 pt-3 border-t border-border flex flex-wrap gap-x-3 gap-y-1">
+          {(product.display_on_card_fields || []).map((key) => {
+            const field = product.custom_data?.[key];
+            if (!field) return null;
+            return (
+              <span key={key} className="text-[10px] text-muted-foreground">
+                <span className="font-medium text-foreground">{field.label}:</span> {field.value || "—"}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {isDetailOpen && <ProductDetailModal product={product} onClose={() => setIsDetailOpen(false)} />}
     </div>

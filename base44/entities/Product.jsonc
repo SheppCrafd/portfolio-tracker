@@ -20,6 +20,12 @@
     "custom_data": {
       "type": "object"
     },
+    "display_on_card_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "deleted_at": {
       "type": "string",
       "format": "date-time"

@@ -53,6 +53,12 @@
         "type": "string"
       }
     },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
     "is_weekly_focus": {
       "type": "boolean",
       "default": false
