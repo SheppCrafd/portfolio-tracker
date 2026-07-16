@@ -282,6 +282,7 @@ File: `src/components/sidebar/StakeholderList.jsx`, `AddStakeholderModal.jsx`
 
 File: `src/components/ai/ChatBox.jsx`, `ChatMessageList.jsx`, `ChatSessionList.jsx`, `base44/functions/aiChatStream/`
 
+- [x] **Beyond spec, per direct user request:** the open panel is now a draggable/resizable window, almost like a real desktop window — drag the header to reposition anywhere on screen, drag any edge or corner to resize (`useWindowGeometry`, `ChatResizeHandles`). Position and size persist to `localStorage` across sessions; first-ever open still falls back to the spec's original bottom-right/lower-fifth-of-page default. The session-history popover (`ChatSessionList`) now anchors relative to the panel's live position instead of a hardcoded corner offset, so it still opens sensibly next to the panel wherever it's been dragged.
 - [x] Chat icon on the lower right of the page
 - [x] Clicking it floats a text box above everything
 - [x] Box floats "on the lower fifth of the page" — ~~used a fixed `350px` pixel height regardless of viewport size, so it wasn't actually proportional to the page at all.~~ **Fixed** — now `20vh` (clamped `320px`–`480px`), with the message list flexing to fill it

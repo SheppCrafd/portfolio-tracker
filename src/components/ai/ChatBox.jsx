@@ -2,15 +2,19 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Plus, ChevronLeft, Paperclip, Maximize2 } from "lucide-react";
 import { useChatController } from "@/hooks/useChatController";
+import { useWindowGeometry } from "@/hooks/useWindowGeometry";
 import ChatIcon from "@/components/ai/ChatIcon";
 import ChatIconPicker from "@/components/ai/ChatIconPicker";
 import ChatMessageList from "@/components/ai/ChatMessageList";
 import ChatSessionList from "@/components/ai/ChatSessionList";
+import ChatResizeHandles from "@/components/ai/ChatResizeHandles";
 
 // Floating quick-access chat widget. All the actual chat behavior (sessions,
 // sending, confirm/undo, icon persistence, attachments) lives in
 // useChatController, shared with the full-page chat at /chat — this
-// component only owns its own open/collapsed chrome and compact layout.
+// component only owns its own open/collapsed chrome. When open, the panel is
+// a draggable/resizable window (useWindowGeometry) rather than pinned to a
+// fixed corner, with its position/size persisted across sessions.
 export default function ChatBox({ activeProjectId }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSessionListOpen, setIsSessionListOpen] = useState(false);
@@ -18,6 +22,7 @@ export default function ChatBox({ activeProjectId }) {
   const navigate = useNavigate();
 
   const chat = useChatController({ activeProjectId });
+  const { geometry, startMove, startResize } = useWindowGeometry();
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -42,11 +47,25 @@ export default function ChatBox({ activeProjectId }) {
     setIsSessionListOpen(false);
   };
 
+  const handleHeaderMouseDown = (e) => {
+    // Only drag from the header's own background, not one of its buttons.
+    if (e.target === e.currentTarget) startMove(e);
+  };
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 font-sans" ref={containerRef}>
+    <>
       {isChatOpen ? (
-        <div className="w-80 sm:w-96 h-[20vh] min-h-[320px] max-h-[480px] bg-card border border-border shadow-2xl rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
-          <div className="bg-primary px-4 py-3 flex items-center justify-between text-primary-foreground">
+        <div
+          ref={containerRef}
+          style={{ position: "fixed", left: geometry.x, top: geometry.y, width: geometry.width, height: geometry.height }}
+          className="z-50 font-sans bg-card border border-border shadow-2xl rounded-2xl flex flex-col overflow-hidden animate-in fade-in duration-150"
+        >
+          <ChatResizeHandles startResize={startResize} />
+
+          <div
+            onMouseDown={handleHeaderMouseDown}
+            className="bg-primary px-4 py-3 flex items-center justify-between text-primary-foreground cursor-move select-none"
+          >
             <div className="flex flex-col items-start gap-0.5">
               <button
                 ref={chat.iconPicker.triggerRef}
@@ -123,8 +142,9 @@ export default function ChatBox({ activeProjectId }) {
         </div>
       ) : (
         <button
+          ref={containerRef}
           onClick={() => setIsChatOpen(true)}
-          className={`w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ${chat.triggerAnimation}`}
+          className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 ${chat.triggerAnimation}`}
         >
           <ChatIcon iconChoice={chat.iconChoice} className="w-6 h-6" />
         </button>
@@ -139,8 +159,9 @@ export default function ChatBox({ activeProjectId }) {
           onNewChat={startNewChat}
           onDeleted={startNewChat}
           onClose={() => setIsSessionListOpen(false)}
+          anchor={{ x: geometry.x, y: geometry.y }}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -2,16 +2,26 @@ import Portal from "@/lib/Portal";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import ChatSessionRow from "@/components/ai/ChatSessionRow";
 
+const POPOVER_WIDTH = 256; // w-64
+const GAP = 12;
+
 // The "<" caret under the chat icon pops this card out to the left of the
 // chat box, floating above the rest of the page, listing previous sessions.
-export default function ChatSessionList({ activeSessionId, onSelect, onNewChat, onClose, onDeleted }) {
+// Positioned relative to the chat panel's current geometry (it's now a
+// draggable window, not pinned to a fixed corner), clamped so it never
+// renders off-screen if the panel is dragged near an edge.
+export default function ChatSessionList({ activeSessionId, onSelect, onNewChat, onClose, onDeleted, anchor }) {
   const { data: sessions = [] } = useChatSessions();
+
+  const left = Math.max(8, anchor.x - POPOVER_WIDTH - GAP);
+  const top = Math.min(Math.max(8, anchor.y), window.innerHeight - 400);
 
   return (
     <Portal>
       <div className="fixed inset-0 z-[9998]" onClick={onClose}>
         <div
-          className="fixed bottom-24 right-[26rem] w-64 max-h-96 overflow-y-auto bg-card border border-border rounded-xl shadow-2xl p-2 animate-in fade-in slide-in-from-right-2 duration-150"
+          style={{ left, top, width: POPOVER_WIDTH }}
+          className="fixed max-h-96 overflow-y-auto bg-card border border-border rounded-xl shadow-2xl p-2 animate-in fade-in slide-in-from-right-2 duration-150"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-1 py-1.5 border-b border-border mb-1">
