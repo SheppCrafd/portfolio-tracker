@@ -89,7 +89,8 @@ ${conversationHistory || '(none yet)'}
 ${userText}
 
 [EXPECTED JSON OUTPUT]
-{ "action": "ACTION_NAME", "args": { ... }, "message": "your reply to the user, matching their tone, in markdown" }`;
+"args_json" must be a JSON-encoded STRING (not a nested object) containing that action's args, e.g. "{\\"title\\":\\"Foo\\",\\"description\\":\\"Bar\\"}". Use "{}" (the string) when an action takes no args.
+{ "action": "ACTION_NAME", "args_json": "{...}", "message": "your reply to the user, matching their tone, in markdown" }`;
 }
 
 async function executeAction(base44, action, args) {
@@ -324,11 +325,15 @@ Deno.serve(async (req) => {
 
     const response = await base44.integrations.Core.InvokeLLM({
       prompt,
+      // Every property here is a flat scalar on purpose — an open-ended
+      // nested "object" type for args (no fixed properties) is rejected by
+      // strict structured-output schema validation, so args travels as a
+      // JSON-encoded string instead and gets parsed below.
       response_json_schema: {
         type: 'object',
         properties: {
           action: { type: 'string' },
-          args: { type: 'object' },
+          args_json: { type: 'string' },
           message: { type: 'string' },
         },
         required: ['action', 'message'],
@@ -344,7 +349,13 @@ Deno.serve(async (req) => {
       return Response.json({ reply: "Hit a bump parsing that request. Try again?" });
     }
 
-    const { action, args, message: reply } = decision;
+    const { action, args_json, message: reply } = decision;
+    let args = {};
+    try {
+      args = args_json ? JSON.parse(args_json) : {};
+    } catch {
+      args = {};
+    }
 
     if (!action || action === 'CHAT_ONLY' || action === 'UNKNOWN') {
       return Response.json({ reply: reply || "I couldn't map that to an action — could you rephrase?" });
