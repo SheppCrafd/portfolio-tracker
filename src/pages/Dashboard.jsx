@@ -8,11 +8,12 @@ import AreaCard from "@/components/areas/AreaCard";
 import AreaModal from "@/components/areas/AreaModal";
 import CreateModal from "@/components/modals/CreateModal";
 import ProductConnectionLines from "@/components/products/ProductConnectionLines";
+import QueryError from "@/components/shared/QueryError";
 
 export default function Dashboard() {
-  const { data: areas = [], isLoading: areasLoading } = useAreas();
-  const { data: products = [] } = useProducts();
-  const { data: projects = [] } = useProjects();
+  const { data: areas = [], isLoading: areasLoading, isError: areasError, error: areasErrorObj, refetch: refetchAreas } = useAreas();
+  const { data: products = [], isError: productsError, error: productsErrorObj, refetch: refetchProducts } = useProducts();
+  const { data: projects = [], isError: projectsError, error: projectsErrorObj, refetch: refetchProjects } = useProjects();
   const { excludedIds } = useFilter();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedArea, setExpandedArea] = useState(null);
@@ -38,6 +39,16 @@ export default function Dashboard() {
 
   if (areasLoading) {
     return <div className="text-sm text-muted-foreground">Loading areas...</div>;
+  }
+
+  if (areasError || productsError || projectsError) {
+    const firstError = areasErrorObj || productsErrorObj || projectsErrorObj;
+    const retry = () => {
+      if (areasError) refetchAreas();
+      if (productsError) refetchProducts();
+      if (projectsError) refetchProjects();
+    };
+    return <QueryError error={firstError} onRetry={retry} label="Couldn't load the dashboard." />;
   }
 
   const visibleAreas = areas.filter((a) => !excludedIds.includes(a.id));

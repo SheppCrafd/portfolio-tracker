@@ -9,7 +9,7 @@ import { getStatusCounts } from "@/lib/taskUtils";
 const BUCKET_STYLE = {
   DONE: { label: "Done", color: "bg-[#86E7B0]" },
   DELEGATED: { label: "Delegated", color: "bg-[#93C5FD]" },
-  IN_PROGRESS: { label: "In Prog", color: "bg-[#FDE047]" },
+  IN_PROGRESS: { label: "In Prog", color: "bg-[#FEF08A]" },
   BLOCKED: { label: "Blocked", color: "bg-[#4B5563]" },
   PENDING_FEEDBACK: { label: "Feedback", color: "bg-[#FDBA74]" },
   ON_HOLD: { label: "On Hold", color: "bg-[#FCA5A5]" },

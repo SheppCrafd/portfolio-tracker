@@ -15,6 +15,7 @@ import { confirmThen } from "@/lib/entityUtils";
 import { base44 } from "@/api/base44Client";
 import Avatar from "@/components/shared/Avatar";
 import AddStakeholderModal from "@/components/sidebar/AddStakeholderModal";
+import QueryError from "@/components/shared/QueryError";
 
 // One checkbox per object type (tasks/notes/projects/products), each showing
 // that type's live count and independently toggleable — checking "tasks"
@@ -212,7 +213,7 @@ function DepartmentSection({ id, name, children }) {
 // draggable, onto a department section (reassign) or a project/product/task
 // card elsewhere in the app (assign).
 export default function StakeholderList() {
-  const { data: stakeholders = [] } = useStakeholders();
+  const { data: stakeholders = [], isError: stakeholdersError, error: stakeholdersErrorObj, refetch: refetchStakeholders } = useStakeholders();
   const { data: departments = [] } = useDepartments();
   const { data: products = [] } = useProducts();
   const { data: projects = [] } = useProjects();
@@ -260,6 +261,10 @@ export default function StakeholderList() {
       }}
     />
   );
+
+  if (stakeholdersError) {
+    return <QueryError error={stakeholdersErrorObj} onRetry={refetchStakeholders} label="Couldn't load stakeholders." />;
+  }
 
   return (
     <div>

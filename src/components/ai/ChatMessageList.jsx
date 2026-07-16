@@ -32,11 +32,11 @@ export default function ChatMessageList({ messages, isComputing, hasMore, onLoad
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex overflow-hidden min-h-0">
       <div
         ref={containerRef}
         onScroll={updateScrollPct}
-        className="flex-1 h-[350px] overflow-y-auto p-4 flex flex-col gap-3 text-sm bg-background/50"
+        className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3 text-sm bg-background/50"
       >
         {hasMore && (
           <button onClick={onLoadMore} className="text-[10px] text-muted-foreground hover:text-foreground self-center">

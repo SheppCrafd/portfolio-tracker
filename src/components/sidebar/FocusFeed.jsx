@@ -4,17 +4,22 @@ import { useProjects } from "@/hooks/useProjects";
 import { useHighlight } from "@/lib/HighlightContext";
 import { isDimmedByHighlight } from "@/hooks/useHighlightDim";
 import { confirmThen } from "@/lib/entityUtils";
+import QueryError from "@/components/shared/QueryError";
 
 const STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "DELEGATED", "PENDING_FEEDBACK", "ON_HOLD", "BLOCKED", "DONE", "DELEGATED_DONE"];
 
 // Live feed: today's Top 3 first, then this week's focus items grouped by
 // project and, within each project, by task type.
 export default function FocusFeed() {
-  const { data: tasks = [] } = useAllTasks();
+  const { data: tasks = [], isError: tasksError, error: tasksErrorObj, refetch: refetchTasks } = useAllTasks();
   const { data: projects = [] } = useProjects();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const { highlights } = useHighlight();
+
+  if (tasksError) {
+    return <QueryError error={tasksErrorObj} onRetry={refetchTasks} label="Couldn't load tasks." />;
+  }
 
   const projectTitle = (id) => projects.find((p) => p.id === id)?.title || "Untitled";
   const topThree = tasks.filter((t) => t.is_today_top_three);

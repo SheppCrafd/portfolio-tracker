@@ -217,7 +217,7 @@ export default function ChatBox({ activeProjectId }) {
   return (
     <div className="fixed bottom-6 right-6 z-50 font-sans" ref={containerRef}>
       {isChatOpen ? (
-        <div className="w-80 sm:w-96 bg-card border border-border shadow-2xl rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
+        <div className="w-80 sm:w-96 h-[20vh] min-h-[320px] max-h-[480px] bg-card border border-border shadow-2xl rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in duration-200">
           <div className="bg-primary px-4 py-3 flex items-center justify-between text-primary-foreground">
             <div className="flex flex-col items-start gap-0.5">
               <button

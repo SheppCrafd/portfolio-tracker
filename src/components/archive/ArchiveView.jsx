@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { useArchivedProjects, useRestoreProject, useProject } from "@/hooks/useProjects";
 import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
+import QueryError from "@/components/shared/QueryError";
 
 // Archive/history shell: ISO-8601 date range filter hitting the
 // archivedProjects function, which reconstructs every project whose active
@@ -19,7 +20,7 @@ export default function ArchiveView() {
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const startIso = startDate ? new Date(startDate).toISOString() : undefined;
   const endIso = endDate ? new Date(endDate).toISOString() : undefined;
-  const { data, isLoading } = useArchivedProjects(startIso, endIso);
+  const { data, isLoading, isError, error, refetch } = useArchivedProjects(startIso, endIso);
   const restoreProject = useRestoreProject();
   const { data: selectedProject } = useProject(selectedProjectId);
   const archivedProjects = data?.projects || [];
@@ -47,6 +48,8 @@ export default function ArchiveView() {
       <div className="space-y-3 mt-4">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading archive...</p>
+        ) : isError ? (
+          <QueryError error={error} onRetry={refetch} label="Couldn't load the archive." />
         ) : archivedProjects.length === 0 ? (
           <p className="text-sm text-muted-foreground">No projects were active in that range.</p>
         ) : (
