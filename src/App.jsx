@@ -10,6 +10,7 @@ import { HighlightProvider } from '@/lib/HighlightContext';
 import { FilterProvider } from '@/lib/FilterContext';
 import AppShell from '@/components/layout/AppShell';
 import Dashboard from '@/pages/Dashboard';
+import ChatPage from '@/pages/ChatPage';
 // Add page imports here
 
 const AuthenticatedApp = () => {
@@ -35,15 +36,16 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // Render the main app
+  // Render the main app. /chat is a standalone full-page experience (its own
+  // layout, like a dedicated chat app) so it's deliberately NOT wrapped in
+  // AppShell's three-column dashboard chrome — every other route is.
   return (
-    <AppShell>
-      <Routes>
-        {/* Add your page Route elements here */}
-        <Route path="/" element={<Dashboard />} />
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
-    </AppShell>
+    <Routes>
+      <Route path="/chat" element={<ChatPage />} />
+      {/* Add your page Route elements here */}
+      <Route path="/" element={<AppShell><Dashboard /></AppShell>} />
+      <Route path="*" element={<AppShell><PageNotFound /></AppShell>} />
+    </Routes>
   );
 };
 

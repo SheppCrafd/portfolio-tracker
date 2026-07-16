@@ -53,7 +53,12 @@ Beyond those three, a full section-by-section re-audit found and fixed:
 - Added a visible error state (shared `QueryError` component with Retry) to every primary data-loading view — previously only a loading state existed, nothing for a failed fetch.
 - Deleted the dead, never-invoked `createTask` backend function.
 
-**Every item in every section below is now `[x]`.** The only thing intentionally left as a plain design note rather than a "fix" is Create New defaulting to the Task tab instead of a neutral first screen (§8) — the tab switcher already gives free choice before any data is entered, so there was nothing to un-check.
+**Every item in every section below is now `[x]`**, except one deliberate user-directed deviation noted below — nothing left half-done.
+
+**5. A real layout bug and two direct user requests, handled in the same pass:**
+- The whole page could be scrolled vertically even though nothing visibly overflowed — `AppShell`'s `h-screen overflow-hidden` root only clips its own content, not the page around it. Fixed by locking `html`/`body`/`#root` to the viewport in `index.css` (§1).
+- The custom scroll-nav rail next to the chat message list (chevrons + position thumb) was removed per direct feedback that it "looks weird" — the message list now scrolls natively. This is now the one deliberate `[~]` in this document (§11) — a conscious simplification, not a bug.
+- Chat is now also available as a full standalone page at `/chat`, styled like ChatGPT/Claude.ai (persistent session sidebar, full-height thread, pinned composer), reachable via a new expand icon on the floating widget. Both share one `useChatController` hook, extracted from what used to be ~300 lines of logic embedded directly in `ChatBox.jsx`, so there's exactly one implementation of "how chat works" behind two layouts.
 
 ---
 
@@ -63,8 +68,9 @@ Beyond those three, a full section-by-section re-audit found and fixed:
 - [x] Left column: stakeholders by department (`LeftSidebar` → `StakeholderList`)
 - [x] Center: main dashboard content
 - [x] Right column: Today's Top 3 / Weekly Focus + status bar chart (`Sidebar` → `FocusFeed`, `StatisticsChart`/`TaskStatistics`)
-- [x] Floating chat widget, bottom-right, above everything (`ChatBox`, `z-50`)
+- [x] Floating chat widget, bottom-right, above everything (`ChatBox`, `z-50`) — now also has an expand icon opening the full-page chat at `/chat` (see §11)
 - [x] "View Archive" — lower-left button opening a floating `ArchivePanel` overlay (`AppShell.jsx`)
+- [x] ~~The whole page (`html`/`body`) was vertically scrollable even though nothing visibly overflowed — `AppShell`'s own `h-screen overflow-hidden` root only clips its own content, not the page around it, so any stray pixel of layout drift anywhere was enough to make the outer page scroll while still looking "perfectly framed."~~ **Fixed** — `html, body, #root` now locked to `height: 100%; overflow: hidden` in `index.css`; every panel's content still scrolls internally exactly as before via its own `overflow-y-auto`.
 
 ## 2. Overview / dashboard hierarchy
 
@@ -309,9 +315,7 @@ File: `src/components/ai/ChatBox.jsx`, `ChatMessageList.jsx`, `ChatSessionList.j
 - [x] User can ask the LLM about information in any object, even if archived (archived projects/tasks fetched into context server-side)
 - [x] User can chat with the LLM about any other topic (`CHAT_ONLY` branch)
 - [x] LLM responses shown in a text bubble above the text field
-- [x] Understated nav bar to the right of the response
-- [x] Nav bar scrolls a long response
-- [x] Nav bar scrolls to previous parts of the message history
+- [~] Understated nav bar to the right of the response, used to scroll — **deliberately removed per direct user feedback** ("remove the custom scrollbar in the ai box, it just looks weird"). The message list now uses plain native browser scrolling only; scrolling to load earlier history still works via the same scroll-near-top trigger, just without the custom chevron/thumb rail. A conscious, permanent deviation from this literal spec line, not a bug.
 - [x] ~~Message history was fetched **in full** for the session on every open — only the render was windowed client-side via `.slice()`. This defeated the spec's actual stated purpose ("retrieved via lazy loading, so memory on the page is not overused") since the whole dataset was already resident regardless of what was visible.~~ **Fixed** — `useChatMessages` now fetches only the most recent 20 messages from the server on open. `loadMore()` issues one additional request per call, using a `created_date`-cursor filter (`$lt` the oldest currently-loaded message) rather than a skip offset, so pagination can't drift or open a gap if a new message arrives mid-session. New messages are appended directly to the cached page instead of triggering a skip=0 refetch, for the same reason.
 - [x] Chat icon animates while the LLM is responding (`animate-bounce` while `isComputing`)
 - [x] Chat history is saved
@@ -319,6 +323,7 @@ File: `src/components/ai/ChatBox.jsx`, `ChatMessageList.jsx`, `ChatSessionList.j
 - [x] Clicking the caret pops up a card to the left of the text box
 - [x] That card floats above the rest of the page
 - [x] That card shows previously saved sessions
+- [x] **Beyond spec, per direct user request:** a full-page chat at `/chat`, laid out like ChatGPT/Claude.ai — a persistent left sidebar listing every session (always visible, not a popup) plus a full-height centered message thread with the composer pinned at the bottom. Reachable via a new expand icon on the floating widget's header; both share the exact same `useChatController` state, so switching between them never loses a session or in-flight draft. Rendered outside `AppShell` entirely (its own standalone layout, no dashboard chrome), unlike every other route.
 
 ## 12. Archive view
 
@@ -370,3 +375,6 @@ _Not individual spec sentences, but implied by the spec's overall scope (editing
 13. No visible error state existed for a failed query — added a shared `QueryError` component across every primary data view.
 14. In-progress yellow was a borderline call on "light" — bumped to an unambiguous pastel.
 15. Dead, unreachable `createTask` backend function — deleted.
+16. The whole page was silently vertically scrollable with nothing visible below the fold — `html`/`body`/`#root` now locked to the viewport.
+17. Custom chat scroll rail removed per direct feedback (native scrolling instead) — the one deliberate deviation left in this document.
+18. Added a full-page chat at `/chat` (ChatGPT/Claude.ai-style), sharing state with the floating widget via a newly extracted `useChatController` hook.
