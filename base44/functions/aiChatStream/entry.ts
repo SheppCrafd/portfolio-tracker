@@ -30,12 +30,12 @@ const ACTION_CATALOG = `
 - "UPDATE_AREA" (args: area_id, title, description)
 - "DELETE_AREA" (args: area_id) — cascades: also deletes every Product, Project, and Task under this area
 
-- "CREATE_PRODUCT" (args: parent_area_id, title, description)
-- "UPDATE_PRODUCT" (args: product_id, title, description)
+- "CREATE_PRODUCT" (args: parent_area_id, title, description, stakeholder_ids [optional array])
+- "UPDATE_PRODUCT" (args: product_id, title, description, stakeholder_ids) — omit a field to leave it unchanged; pass stakeholder_ids as the FULL new array (not just additions)
 - "DELETE_PRODUCT" (args: product_id)
 
-- "CREATE_PROJECT" (args: parent_area_id, parent_product_id [optional, null for standalone], title, objective, problem_statement, owner_name, due_date [ISO date], due_date_status ["ESTIMATED" or "COMMITTED"])
-- "UPDATE_PROJECT" (args: project_id, title, objective, problem_statement, owner_name, due_date, due_date_status, activity)
+- "CREATE_PROJECT" (args: parent_area_id, parent_product_id [optional, null for standalone], title, objective, problem_statement, owner_name, due_date [ISO date], due_date_status ["ESTIMATED" or "COMMITTED"], stakeholder_ids [optional array], related_product_ids [optional array])
+- "UPDATE_PROJECT" (args: project_id, title, objective, problem_statement, owner_name, due_date, due_date_status, activity, stakeholder_ids [full replacement array], related_product_ids [full replacement array, products this project also serves beyond its primary parent], attachments [full replacement array of {name,url}], links [full replacement array of {label,url}], metrics [object with any of impact_forecast/impact_measured/outcome_forecast/outcome_measured]) — omit a field to leave it unchanged
 - "MOVE_PROJECT" (args: project_id, parent_product_id [null to detach], parent_area_id)
 - "ARCHIVE_PROJECT" (args: project_id) — cascades: also archives every task under it
 - "RESTORE_PROJECT" (args: project_id)
@@ -46,18 +46,19 @@ const ACTION_CATALOG = `
 - "DELETE_NOTE" (args: note_id)
 
 - "CREATE_TASK" (args: project_id, description, quadrant [1-4 or null], type ["COMMUNICATION","OPEN_QUESTIONS","SCRUM_NEEDS","EMPLOYEE_NEEDS","OTHER"], is_highly_important [bool], is_quick_task [bool], stakeholder_ids [array])
-- "UPDATE_TASK" (args: task_id, description, quadrant, type, is_highly_important, is_quick_task, stakeholder_ids, notes)
+- "UPDATE_TASK" (args: task_id, description, quadrant, type, is_highly_important, is_quick_task, stakeholder_ids [full replacement array], notes, attachments [full replacement array of {name,url}])
 - "UPDATE_TASK_STATUS" (args: task_id, status ["NOT_STARTED","IN_PROGRESS","DELEGATED","PENDING_FEEDBACK","ON_HOLD","BLOCKED","DONE","DELEGATED_DONE"])
 - "TOGGLE_WEEKLY_FOCUS" (args: task_id)
 - "TOGGLE_TOP_THREE" (args: task_id) — max 3 per project, will error if exceeded
 - "ARCHIVE_TASK" (args: task_id)
+- "RESTORE_TASK" (args: task_id) — un-archives a task
 - "DELETE_TASK" (args: task_id)
 
-- "CREATE_STAKEHOLDER" (args: name, department)
-- "UPDATE_STAKEHOLDER" (args: stakeholder_id, name, department)
+- "CREATE_STAKEHOLDER" (args: name, department, avatar_url [optional, from an attached image])
+- "UPDATE_STAKEHOLDER" (args: stakeholder_id, name, department, avatar_url)
 - "DELETE_STAKEHOLDER" (args: stakeholder_id)
 
-- "SET_CUSTOM_FIELD" (args: entity_type ["project","product","area"], entity_id, label, value, show_on_card [bool]) — adds or updates a custom field's value directly on that one entity (chat-created fields are always scoped to the single entity, not registered app/area-wide — that broader scope is only settable from the UI)
+- "SET_CUSTOM_FIELD" (args: entity_type ["project","product","area"], entity_id, label, value, show_on_card [bool], area_wide [bool, optional]) — adds or updates a custom field's value on that entity. If entity_type is "project" or "product" and area_wide is true, the field is also registered on that entity's parent Area, making it available (empty, fillable) on every other project/product in that same area — matching what the "All projects/products in this area" option does in the UI. Areas have no broader scope to register against, so area_wide is ignored when entity_type is "area".
 
 - "CHAT_ONLY" (args: none — just respond conversationally)
 - "UNKNOWN" (args: none — couldn't map the request to an action)
@@ -70,12 +71,16 @@ You are the admin routing engine for a portfolio-tracking dashboard, acting on b
 CRITICAL: Respond ONLY with valid JSON, no text outside the JSON object.
 
 CRITICAL MAPPING RULE: When an action needs an id (area_id, product_id, project_id, task_id, note_id, stakeholder_id), look up the correct id from [GLOBAL DATABASE STATE] using the name/title the user gave. Never invent an id or pass a name where an id is expected.
+
+ATTACHMENTS: if [LATEST USER MESSAGE] contains a line like "[Attached: filename](https://...)", the user has already uploaded that file. If they're asking to attach it to a project or task, use UPDATE_PROJECT or UPDATE_TASK with an \`attachments\` array containing \`{"name": "filename", "url": "https://..."}\` merged with that entity's existing attachments. If they're asking to set it as a stakeholder's photo/avatar, use CREATE_STAKEHOLDER or UPDATE_STAKEHOLDER with \`avatar_url\` set to that URL instead. If unsure whether to replace vs. add to an existing array, ask the user.
+
+FIELDS MARKED "full replacement array": when an action arg is documented as a full replacement array (stakeholder_ids, related_product_ids, attachments, links), you must include the COMPLETE desired array, not just the item being added or removed — look up the entity's current value in [GLOBAL DATABASE STATE] first and merge/modify it yourself before sending the action.
 ${ACTION_CATALOG}
 [GLOBAL DATABASE STATE]
 Active Project ID (if the user is chatting from within a specific project): ${activeProjectId || 'None'}
 Areas: ${JSON.stringify(areas.map((a) => ({ id: a.id, title: a.title, description: a.description })))}
-Products: ${JSON.stringify(products.map((p) => ({ id: p.id, title: p.title, parent_area_id: p.parent_area_id, description: p.description })))}
-Active Projects: ${JSON.stringify(projects.map((p) => ({ id: p.id, title: p.title, parent_area_id: p.parent_area_id, parent_product_id: p.parent_product_id, objective: p.objective, owner_name: p.owner_name, due_date: p.due_date, due_date_status: p.due_date_status })))}
+Products: ${JSON.stringify(products.map((p) => ({ id: p.id, title: p.title, parent_area_id: p.parent_area_id, description: p.description, stakeholder_ids: p.stakeholder_ids || [] })))}
+Active Projects: ${JSON.stringify(projects.map((p) => ({ id: p.id, title: p.title, parent_area_id: p.parent_area_id, parent_product_id: p.parent_product_id, objective: p.objective, owner_name: p.owner_name, due_date: p.due_date, due_date_status: p.due_date_status, stakeholder_ids: p.stakeholder_ids || [], related_product_ids: p.related_product_ids || [], attachments: p.attachments || [], links: p.links || [] })))}
 Archived Projects: ${JSON.stringify(archivedProjects.map((p) => ({ id: p.id, title: p.title })))}
 Active Tasks: ${JSON.stringify(tasks.map((t) => ({ id: t.id, project_id: t.project_id, description: t.description, status: t.status, quadrant: t.quadrant, type: t.type, stakeholder_ids: t.stakeholder_ids })))}
 Archived Tasks: ${JSON.stringify(archivedTasks.map((t) => ({ id: t.id, project_id: t.project_id, description: t.description, status: t.status })))}
@@ -116,11 +121,17 @@ async function executeAction(base44, action, args) {
     }
 
     case 'CREATE_PRODUCT': {
-      const product = await base44.entities.Product.create({ parent_area_id: args.parent_area_id, title: args.title, description: args.description });
+      const product = await base44.entities.Product.create({
+        parent_area_id: args.parent_area_id,
+        title: args.title,
+        description: args.description,
+        stakeholder_ids: args.stakeholder_ids || [],
+      });
       return { toolResult: { product } };
     }
     case 'UPDATE_PRODUCT': {
-      const product = await base44.entities.Product.update(args.product_id, { title: args.title, description: args.description });
+      const { product_id, ...rest } = args;
+      const product = await base44.entities.Product.update(product_id, rest);
       return { toolResult: { product } };
     }
     case 'DELETE_PRODUCT': {
@@ -138,6 +149,8 @@ async function executeAction(base44, action, args) {
         owner_name: args.owner_name,
         due_date: args.due_date,
         due_date_status: args.due_date_status || 'ESTIMATED',
+        stakeholder_ids: args.stakeholder_ids || [],
+        related_product_ids: args.related_product_ids || [],
       });
       return { toolResult: { project } };
     }
@@ -237,17 +250,22 @@ async function executeAction(base44, action, args) {
       const task = await base44.entities.Task.update(args.task_id, { archived_at: new Date().toISOString() });
       return { toolResult: { task } };
     }
+    case 'RESTORE_TASK': {
+      const task = await base44.entities.Task.update(args.task_id, { archived_at: null });
+      return { toolResult: { task } };
+    }
     case 'DELETE_TASK': {
       const task = await base44.entities.Task.update(args.task_id, { deleted_at: new Date().toISOString() });
       return { toolResult: { task } };
     }
 
     case 'CREATE_STAKEHOLDER': {
-      const stakeholder = await base44.entities.Stakeholder.create({ name: args.name, department: args.department });
+      const stakeholder = await base44.entities.Stakeholder.create({ name: args.name, department: args.department, avatar_url: args.avatar_url });
       return { toolResult: { stakeholder } };
     }
     case 'UPDATE_STAKEHOLDER': {
-      const stakeholder = await base44.entities.Stakeholder.update(args.stakeholder_id, { name: args.name, department: args.department });
+      const { stakeholder_id, ...rest } = args;
+      const stakeholder = await base44.entities.Stakeholder.update(stakeholder_id, rest);
       return { toolResult: { stakeholder } };
     }
     case 'DELETE_STAKEHOLDER': {
@@ -267,6 +285,20 @@ async function executeAction(base44, action, args) {
         ? [...new Set([...(entity.display_on_card_fields || []), key])]
         : entity.display_on_card_fields || [];
       const updated = await entityApi.update(args.entity_id, { custom_data, display_on_card_fields });
+
+      if (args.area_wide && args.entity_type !== 'area' && entity.parent_area_id) {
+        const area = await base44.entities.Area.get(entity.parent_area_id);
+        if (area) {
+          const fieldListKey = `${args.entity_type}_fields`;
+          const existingFields = area.custom_schema?.[fieldListKey] || [];
+          if (!existingFields.some((f) => f.key === key)) {
+            await base44.entities.Area.update(area.id, {
+              custom_schema: { ...area.custom_schema, [fieldListKey]: [...existingFields, { key, label: args.label }] },
+            });
+          }
+        }
+      }
+
       return { toolResult: { entity: updated } };
     }
 
