@@ -1,4 +1,4 @@
-import Avatar from "@/components/products/Avatar";
+import Avatar from "@/components/shared/Avatar";
 
 // Overlapping avatar stack — max 5 visible, 5th slot becomes a "+X" badge when there are more.
 export default function AvatarStack({ stakeholders }) {

@@ -1,6 +1,7 @@
 import { useAllTasks, useUpdateTask } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
 import { useHighlight } from "@/lib/HighlightContext";
+import { isDimmedByHighlight } from "@/hooks/useHighlightDim";
 
 const STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "DELEGATED", "PENDING_FEEDBACK", "ON_HOLD", "BLOCKED", "DONE", "DELEGATED_DONE"];
 
@@ -21,8 +22,7 @@ export default function FocusFeed() {
     return acc;
   }, {});
 
-  const isDimmed = (task) =>
-    highlightedIds.length > 0 && !(task.stakeholder_ids || []).some((id) => highlightedIds.includes(id));
+  const isDimmed = (task) => isDimmedByHighlight(highlightedIds, task.stakeholder_ids || []);
 
   const renderRow = (task) => (
     <div key={task.id} className={`flex items-center justify-between gap-2 text-xs bg-muted rounded p-2 ${isDimmed(task) ? "opacity-30" : ""}`}>

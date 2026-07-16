@@ -4,6 +4,7 @@ import Portal from "@/lib/Portal";
 import { useProjectNotes } from "@/hooks/useProjectNotes";
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useArchiveProject, useRestoreProject, useUpdateProject, useDeleteProject } from "@/hooks/useProjects";
+import { confirmThen } from "@/lib/entityUtils";
 import TaskTable from "@/components/projects/TaskTable";
 import EditableText from "@/components/shared/EditableText";
 import ProjectNotes from "@/components/projects/ProjectNotes";
@@ -163,12 +164,12 @@ export default function ProjectDetailModal({ project, onClose }) {
           <div className="p-4 border-t border-border bg-muted/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => {
-                  if (window.confirm("Are you sure you want to delete this project?")) {
+                onClick={() =>
+                  confirmThen("Are you sure you want to delete this project?", () => {
                     deleteProject.mutate(project.id);
                     onClose();
-                  }
-                }}
+                  })
+                }
                 className="text-xs flex items-center gap-1.5 text-muted-foreground hover:text-destructive px-3 py-1.5 rounded transition-colors"
               >
                 <Trash2 className="w-4 h-4" /> Delete Project

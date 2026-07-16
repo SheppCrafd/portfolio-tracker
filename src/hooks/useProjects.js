@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { excludeSoftDeleted } from "@/lib/entityUtils";
 
 export function useProjects() {
   return useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
       const projects = await base44.entities.Project.list();
-      return projects.filter((p) => !p.is_archived && !p.deleted_at);
+      return excludeSoftDeleted(projects).filter((p) => !p.is_archived);
     },
   });
 }

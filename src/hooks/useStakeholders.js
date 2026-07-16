@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { excludeSoftDeleted } from "@/lib/entityUtils";
 
 export function useStakeholders() {
   return useQuery({
     queryKey: ["stakeholders"],
     queryFn: async () => {
       const stakeholders = await base44.entities.Stakeholder.list();
-      return stakeholders.filter((s) => !s.deleted_at);
+      return excludeSoftDeleted(stakeholders);
     },
   });
 }

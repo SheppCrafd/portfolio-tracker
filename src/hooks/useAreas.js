@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { excludeSoftDeleted } from "@/lib/entityUtils";
 
 export function useAreas() {
   return useQuery({
     queryKey: ["areas"],
     queryFn: async () => {
       const areas = await base44.entities.Area.list();
-      return areas.filter((a) => !a.deleted_at);
+      return excludeSoftDeleted(areas);
     },
   });
 }

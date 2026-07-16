@@ -1,43 +1,34 @@
-import { useState, useEffect } from "react";
-import { Trash2 } from "lucide-react"; 
-import { useDroppable } from "@dnd-kit/core"; 
-import { useHighlight } from "@/lib/HighlightContext";
+import { Trash2 } from "lucide-react";
+import { useDroppable } from "@dnd-kit/core";
 import { useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
-import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { useAllTasks } from "@/hooks/useTasks";
+import { useEditableField } from "@/hooks/useEditableField";
+import { useHighlightDim } from "@/hooks/useHighlightDim";
+import { confirmThen } from "@/lib/entityUtils";
 import EditableText from "@/components/shared/EditableText";
-import ProductCard from "@/components/products/ProductCard"; 
-import ProjectCard from "@/components/projects/ProjectCard"; 
+import ProductCard from "@/components/products/ProductCard";
+import ProjectCard from "@/components/projects/ProjectCard";
 import TaskStatistics from "@/components/shared/TaskStatistics";
 
 export default function AreaCard({ area, products = [], orphanProjects = [], productCount, onExpand, stakeholderIds = [] }) {
-  const { highlightedIds } = useHighlight();
-  const isDimmed = highlightedIds.length > 0 && !stakeholderIds.some((id) => highlightedIds.includes(id));
+  const isDimmed = useHighlightDim(stakeholderIds);
   const updateArea = useUpdateArea();
   const deleteArea = useDeleteArea();
-  const [title, setTitle] = useState(area.title);
-  
+
   const { data: allTasks = [] } = useAllTasks();
 
   const { setNodeRef, isOver } = useDroppable({ id: area.id });
 
-  useEffect(() => setTitle(area.title), [area.title]);
-
-  const debouncedSave = useDebouncedCallback(
-    (value) => updateArea.mutate({ id: area.id, data: { title: value } }),
-    500
+  const { value: title, handleInput } = useEditableField(
+    area.title,
+    (value) => updateArea.mutate({ id: area.id, data: { title: value } })
   );
 
-  const handleInput = (e) => {
-    const value = e.currentTarget.textContent;
-    setTitle(value);
-    debouncedSave(value);
-  };
-
   const handleDelete = () => {
-    if (window.confirm(`Delete area "${area.title}"? This will also delete all of its products and projects. This cannot be undone.`)) {
-      deleteArea.mutate(area.id);
-    }
+    confirmThen(
+      `Delete area "${area.title}"? This will also delete all of its products and projects. This cannot be undone.`,
+      () => deleteArea.mutate(area.id)
+    );
   };
 
   // Calculate tasks belonging to this entire Area

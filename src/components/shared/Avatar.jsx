@@ -13,9 +13,11 @@ function hashToColor(name) {
   return color;
 }
 
-// Avatar with a canvas-drawn fallback: on image error, draws a colored circle
-// with the person's initials onto a hidden canvas and uses its dataURL as the image src.
-export default function CanvasAvatar({ name, avatarUrl }) {
+// Avatar with a canvas-drawn fallback: on image error (or when no avatar_url
+// is set), draws a colored circle with the person's initials onto a hidden
+// canvas and uses its dataURL as the image src. The color is hashed from
+// their name so the same person always gets the same color.
+export default function Avatar({ name, avatarUrl, className = "" }) {
   const [src, setSrc] = useState(avatarUrl);
   const canvasRef = useRef(null);
 
@@ -41,7 +43,13 @@ export default function CanvasAvatar({ name, avatarUrl }) {
 
   return (
     <>
-      <img src={src} alt={name} onError={handleError} className="w-8 h-8 rounded-full object-cover" />
+      <img
+        src={src}
+        alt={name}
+        title={name}
+        onError={handleError}
+        className={`w-8 h-8 rounded-full object-cover border-2 border-card ${className}`}
+      />
       <canvas ref={canvasRef} style={{ display: "none" }} />
     </>
   );

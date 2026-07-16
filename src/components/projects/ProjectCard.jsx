@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Expand, GripVertical } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -6,39 +6,34 @@ import ProjectNotes from "@/components/projects/ProjectNotes";
 import TaskTableModal from "@/components/projects/TaskTableModal";
 import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
 import TaskStatistics from "@/components/shared/TaskStatistics";
-import { useHighlight } from "@/lib/HighlightContext";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjectNotes } from "@/hooks/useProjectNotes";
 import { useUpdateProject } from "@/hooks/useProjects";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { useEditableField } from "@/hooks/useEditableField";
+import { useHighlightDim } from "@/hooks/useHighlightDim";
+import { filterActiveTasks, getQuadrantCounts, isTaskDone } from "@/lib/taskUtils";
+import { getProjectOwner, getDueDateColorClass, formatDueDate } from "@/lib/projectUtils";
 
 export default function ProjectCard({ project, stakeholderIds = [] }) {
   const [isTableOpen, setIsTableOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  
-  const { highlightedIds } = useHighlight();
-  
+
   const cardStakeholderIds = project.stakeholder_ids || stakeholderIds || [];
-  const isDimmed = highlightedIds.length > 0 && !cardStakeholderIds.some((id) => highlightedIds.includes(id));
-  
+  const isDimmed = useHighlightDim(cardStakeholderIds);
+
   const { data: tasks = [] } = useTasks(project.id);
   const { data: notes = [] } = useProjectNotes(project.id);
   const updateProject = useUpdateProject();
 
-  const [title, setTitle] = useState(project.title);
-  useEffect(() => setTitle(project.title), [project.title]);
-
-  const debouncedSaveTitle = useDebouncedCallback(
-    (value) => updateProject.mutate({ id: project.id, data: { title: value } }),
-    500
+  const { value: title, handleInput: handleTitleInput } = useEditableField(
+    project.title,
+    (value) => updateProject.mutate({ id: project.id, data: { title: value } })
   );
 
-  const handleTitleInput = (e) => {
-    const value = e.currentTarget.textContent;
-    setTitle(value);
-    debouncedSaveTitle(value);
-  };
-
+  // Deliberately left as-is: writes to `project.risks`, which isn't a real
+  // schema field. This overlaps with the ProjectNote-backed risks/questions
+  // list rendered below and needs a real design decision, not a rename.
   const debouncedSaveRisks = useDebouncedCallback(
     (value) => updateProject.mutate({ id: project.id, data: { risks: value } }),
     500
@@ -58,44 +53,16 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
     opacity: isDragging ? 0.8 : 1,
   };
 
-  const activeTasks = tasks.filter(t => !t.isArchived && t.status !== "DELETED");
-  const doneTasks = tasks.filter((t) => t.status === "DONE" || t.status === "DELEGATED_DONE" || t.status === "DELEGATED-DONE");
+  const doneTasks = tasks.filter(isTaskDone);
   const projectProgress = tasks.length > 0 ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
-  
-  const getQuadData = (quadNum) => {
-    const quadTasks = activeTasks.filter(t => 
-      quadNum === 4 ? (t.quadrant === 4 || !t.quadrant) : t.quadrant === quadNum
-    );
-    const hasFocus = quadTasks.some(t => t.isWeeklyFocus);
-    return {
-      count: quadTasks.length,
-      className: hasFocus 
-        ? "bg-green-800 text-white font-bold" 
-        : "bg-muted/40 text-muted-foreground"
-    };
-  };
+  const quadrants = getQuadrantCounts(tasks);
 
-  const q1 = getQuadData(1);
-  const q2 = getQuadData(2);
-  const q3 = getQuadData(3);
-  const q4 = getQuadData(4);
+  const activeTasks = filterActiveTasks(tasks);
+  const allDone = activeTasks.length > 0 && activeTasks.every(isTaskDone);
 
-  const allDone = activeTasks.length > 0 && activeTasks.every((t) => t.status === "DONE" || t.status === "DELEGATED_DONE" || t.status === "DELEGATED-DONE");
-  
-  let dateColorClass = "text-black dark:text-white"; 
-  if (allDone || project.dueDateStatus === "Done") {
-    dateColorClass = "text-blue-500 font-bold";
-  } else if (project.dueDateStatus === "Committed - On Track") {
-    dateColorClass = "text-green-600 font-bold";
-  } else if (project.dueDateStatus === "Committed - At Risk") {
-    dateColorClass = "text-orange-500 font-bold";
-  } else if (project.dueDateStatus === "Committed - Missed") {
-    dateColorClass = "text-red-600 font-bold";
-  }
-
-  const formattedDate = project.dueDate
-    ? new Date(project.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    : "No due date";
+  const dateColorClass = getDueDateColorClass(project, allDone);
+  const formattedDate = formatDueDate(project);
+  const owner = getProjectOwner(project) || "Unassigned";
 
   return (
     <div 
@@ -125,10 +92,16 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
           className="shrink-0 mt-1 grid grid-cols-2 gap-0.5 border border-border rounded overflow-hidden w-9 h-9 text-[10px] z-20 select-none"
           title="Open Task Table"
         >
-          <div className={`flex items-center justify-center transition-colors ${q1.className}`}>{q1.count}</div>
-          <div className={`flex items-center justify-center transition-colors ${q2.className}`}>{q2.count}</div>
-          <div className={`flex items-center justify-center transition-colors ${q3.className}`}>{q3.count}</div>
-          <div className={`flex items-center justify-center transition-colors ${q4.className}`}>{q4.count}</div>
+          {quadrants.map((q) => (
+            <div
+              key={q.quadrant}
+              className={`flex items-center justify-center transition-colors ${
+                q.hasFocus ? "bg-green-800 text-white font-bold" : "bg-muted/40 text-muted-foreground"
+              }`}
+            >
+              {q.count}
+            </div>
+          ))}
         </button>
 
         <div className="flex-1 text-center px-1 min-w-0 flex flex-col items-center">
@@ -159,8 +132,8 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
         </div>
 
         <div className="text-right shrink-0 min-w-[75px] select-none mt-0.5">
-          <p className="text-[10px] font-semibold text-muted-foreground truncate" title={project.owner || "Unassigned"}>
-            {project.owner || "Unassigned"}
+          <p className="text-[10px] font-semibold text-muted-foreground truncate" title={owner}>
+            {owner}
           </p>
           <p className={`text-[11px] mt-0.5 ${dateColorClass}`}>
             {formattedDate}

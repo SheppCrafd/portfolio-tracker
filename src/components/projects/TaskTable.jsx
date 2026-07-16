@@ -4,6 +4,8 @@ import { useTasks, useCreateTask, useUpdateTask, useToggleTopThree, useDeleteTas
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useToast } from "@/components/ui/use-toast";
 import { useHighlight } from "@/lib/HighlightContext";
+import { isDimmedByHighlight } from "@/hooks/useHighlightDim";
+import { confirmThen } from "@/lib/entityUtils";
 import StatusDropdown from "@/components/projects/StatusDropdown";
 import EditableText from "@/components/shared/EditableText";
 import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
@@ -22,9 +24,7 @@ export default function TaskTable({ project }) {
   const { highlightedIds } = useHighlight();
 
   const handleDelete = (task) => {
-    if (window.confirm(`Delete task "${task.description}"? This cannot be undone.`)) {
-      deleteTask.mutate(task.id);
-    }
+    confirmThen(`Delete task "${task.description}"? This cannot be undone.`, () => deleteTask.mutate(task.id));
   };
 
   const [sortColumn, setSortColumn] = useState(null);
@@ -83,8 +83,7 @@ export default function TaskTable({ project }) {
     );
   };
 
-  const isDimmed = (task) =>
-    highlightedIds.length > 0 && !(task.stakeholder_ids || []).some((id) => highlightedIds.includes(id));
+  const isDimmed = (task) => isDimmedByHighlight(highlightedIds, task.stakeholder_ids || []);
 
   const SortHeader = ({ column, label }) => (
     <th className="p-2 font-medium cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort(column)}>

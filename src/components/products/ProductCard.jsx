@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Expand } from "lucide-react";
-import { useHighlight } from "@/lib/HighlightContext";
 import { useFilter } from "@/lib/FilterContext";
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllTasks } from "@/hooks/useTasks";
 import { useUpdateProduct } from "@/hooks/useProducts";
-import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { useEditableField } from "@/hooks/useEditableField";
+import { useHighlightDim } from "@/hooks/useHighlightDim";
+import { isTaskDone } from "@/lib/taskUtils";
 import EditableText from "@/components/shared/EditableText";
 import AvatarStack from "@/components/products/AvatarStack";
 import ConnectionLines from "@/components/products/ConnectionLines";
@@ -23,31 +24,21 @@ export default function ProductCard({ product }) {
   const { excludedIds } = useFilter();
   const updateProduct = useUpdateProduct();
 
-  const [title, setTitle] = useState(product.title);
-  useEffect(() => setTitle(product.title), [product.title]);
-
-  const debouncedSave = useDebouncedCallback(
-    (value) => updateProduct.mutate({ id: product.id, data: { title: value } }),
-    500
+  const { value: title, handleInput } = useEditableField(
+    product.title,
+    (value) => updateProduct.mutate({ id: product.id, data: { title: value } })
   );
-
-  const handleInput = (e) => {
-    const value = e.currentTarget.textContent;
-    setTitle(value);
-    debouncedSave(value);
-  };
 
   const stakeholders = allStakeholders.filter((st) => product.stakeholder_ids?.includes(st.id));
   const projects = allProjects.filter((p) => p.parent_product_id === product.id && !excludedIds.includes(p.id));
-  
+
   const { setNodeRef, isOver } = useDroppable({ id: product.id });
-  
-  const { highlightedIds } = useHighlight();
-  const isDimmed = highlightedIds.length > 0 && !(product.stakeholder_ids || []).some((id) => highlightedIds.includes(id));
+
+  const isDimmed = useHighlightDim(product.stakeholder_ids || []);
 
   const projectIds = projects.map((p) => p.id);
   const productTasks = allTasks.filter((t) => projectIds.includes(t.project_id));
-  const doneCount = productTasks.filter((t) => t.status === "DONE" || t.status === "DELEGATED_DONE").length;
+  const doneCount = productTasks.filter(isTaskDone).length;
   const completionPct = productTasks.length ? Math.round((doneCount / productTasks.length) * 100) : 0;
 
   return (

@@ -7,7 +7,8 @@ import { useProjects } from "@/hooks/useProjects";
 import { useAllTasks } from "@/hooks/useTasks";
 import { useAllProjectNotes } from "@/hooks/useProjectNotes";
 import { useHighlight } from "@/lib/HighlightContext";
-import CanvasAvatar from "@/components/sidebar/CanvasAvatar";
+import { confirmThen } from "@/lib/entityUtils";
+import Avatar from "@/components/shared/Avatar";
 import AddStakeholderModal from "@/components/sidebar/AddStakeholderModal";
 
 // Stakeholders grouped by department, each with a relational metrics grid
@@ -25,9 +26,10 @@ export default function StakeholderList() {
   const departments = [...new Set(stakeholders.map((s) => s.department))];
 
   const handleRemove = (stakeholder) => {
-    if (window.confirm(`Remove stakeholder? "${stakeholder.name}" will be removed from the stakeholder list.`)) {
-      deleteStakeholder.mutate(stakeholder.id);
-    }
+    confirmThen(
+      `Remove stakeholder? "${stakeholder.name}" will be removed from the stakeholder list.`,
+      () => deleteStakeholder.mutate(stakeholder.id)
+    );
   };
 
   const countFor = (list, id) => list.filter((item) => (item.stakeholder_ids || []).includes(id)).length;
@@ -59,7 +61,7 @@ export default function StakeholderList() {
                         checked={highlightedIds.includes(s.id)}
                         onChange={() => toggleHighlight(s.id)}
                       />
-                      <CanvasAvatar name={s.name} avatarUrl={s.avatar_url} />
+                      <Avatar name={s.name} avatarUrl={s.avatar_url} />
                       <span className="text-xs flex-1 truncate min-w-0">{s.name}</span>
                       <button
                         onClick={() => handleRemove(s)}

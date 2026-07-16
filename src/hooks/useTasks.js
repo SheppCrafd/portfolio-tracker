@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { filterActiveTasks } from "@/lib/taskUtils";
 
 // 1. FETCH TASKS FOR A SPECIFIC PROJECT (WITH LIVE SUBSCRIPTION POLLING)
 export function useTasks(projectId) {
@@ -9,7 +10,7 @@ export function useTasks(projectId) {
     queryKey: ["tasks", projectId],
     queryFn: async () => {
       const tasks = await base44.entities.Task.filter({ project_id: projectId });
-      return tasks.filter((t) => !t.archived_at && !t.deleted_at);
+      return filterActiveTasks(tasks);
     },
     enabled: !!projectId,
   });
@@ -34,7 +35,7 @@ export function useAllTasks() {
     queryKey: ["allTasks"],
     queryFn: async () => {
       const tasks = await base44.entities.Task.list();
-      return tasks.filter((t) => !t.archived_at && !t.deleted_at);
+      return filterActiveTasks(tasks);
     },
   });
 }
