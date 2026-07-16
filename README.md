@@ -1,68 +1,116 @@
-# Base44 Project
+# Portfolio Tracker
 
-Use this repository to run and edit the app locally, then publish changes back through Base44.
+A dashboard for managing a portfolio of projects and products across your areas of responsibility — with task tracking, stakeholder visibility, a focus feed, and an AI chat assistant that can act on your data. Built as a [Base44](https://base44.com) app (React frontend + Base44-hosted backend/entities).
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## Overview
 
-## Prerequisites
+Portfolio Tracker is built for someone managing many projects and products across multiple areas of responsibility (e.g. "Work", "Home"). It organizes work into a three-level hierarchy and gives you a single dashboard to see status, risks, and priorities at a glance:
 
-1. Clone the repository using the project's Git URL.
-2. Navigate to the project directory.
-3. Install dependencies: `npm install`.
-4. Install the Base44 CLI: `npm install -g base44@latest`.
+- **Areas of Responsibility** — the broadest grouping (e.g. Work, Home).
+- **Products** — sit inside an area, optionally connected to related products.
+- **Projects** — sit inside a product, or directly inside an area if there's no product. Each project owns a set of tasks.
 
-See the [Base44 CLI docs](https://docs.base44.com/developers/references/cli/get-started/overview) if you want to run Base44 commands directly.
+Each level is rendered as a card, nested inside its parent's card, so the dashboard reads as a visual hierarchy rather than a flat list.
 
-## Run Locally
+### Key features
 
-Run the full local development environment from the project root:
+- **Project cards** show a quadrant breakdown of task counts (Eisenhower-style: important/urgent), owner and due date (color-coded by commitment status), and open risks/questions — with an expandable detail view for the full picture (notes, stakeholders, metrics, attachments, links, custom fields).
+- **Task table** per project with status, quadrant + H/Q flags, type, notes, stakeholders, and attachments. Tasks can be flagged as a weekly focus item or one of "today's top 3."
+- **Product and Area cards** with their own expandable detail views, stakeholders, and support for user-defined custom fields (global or per-card, optionally surfaced on the card face).
+- **Create New / Filter** — a single entry point to create a Task, Project, Product, or Area, plus filtering by area/product/project.
+- **Right sidebar** — Today's Top 3, this week's focus items grouped by project, and a horizontal bar chart of task status counts per project.
+- **Left sidebar** — stakeholders grouped by department, with per-category (tasks/notes/projects/products) counts that toggle a highlight/dim treatment across the dashboard.
+- **AI chat assistant** — a floating chat widget (and a full `/chat` page) backed by a streaming LLM function that can create/update tasks, projects, products, and areas, add notes, mark focus items, and answer questions about your data, including archived items.
+- **Archive view** — a date-range view of everything that was active during that window, including archived projects/tasks, which remain fully editable and can be restored.
+
+## How it works
+
+### Architecture
+
+- **Frontend**: React 18 + Vite, React Router, TanStack Query for data fetching/caching, Zustand for lightweight client state, Tailwind CSS + Radix UI primitives (via `shadcn`-style components in `src/components/ui`) for the design system, Framer Motion for animation, and Recharts for the status bar chart.
+- **Backend**: [Base44](https://base44.com) — a hosted backend providing entity storage/CRUD, auth, and serverless functions. The frontend talks to it through `@base44/sdk`, configured in `src/api/base44Client.js`.
+- **Build tooling**: Vite with the `@base44/vite-plugin` (dev-only HMR notifier, visual-edit agent, and analytics hooks), ESLint, TypeScript in `checkJs` mode for type-checking JS via `jsconfig.json`, and Vitest for unit tests.
+
+### Data model (`base44/entities`)
+
+| Entity | Purpose |
+|---|---|
+| `Area` | Top-level area of responsibility; supports custom fields. |
+| `Product` | Belongs to an `Area`; tracks stakeholders and related products. |
+| `Project` | Belongs to a `Product` and/or `Area`; owns objective, due date, risks, metrics, archive state. |
+| `Task` | Belongs to a `Project`; status, quadrant, type, focus/top-3 flags, archive state. |
+| `ProjectNote` | Risk, open question, or general note attached to a project. |
+| `Stakeholder` | Person with a name, department, and avatar; referenced by id across tasks/notes/projects/products. |
+| `Department` | Grouping used to organize stakeholders in the left sidebar. |
+| `ChatSession` / `ChatMessage` | AI assistant conversation history, paginated/lazy-loaded. |
+| `User` | App user, with `admin`/`user` role. |
+
+Soft-delete (`deleted_at`) and archive (`archived_at`/`is_archived`) fields are used throughout instead of hard deletes, so history is preserved for the archive view.
+
+### Backend functions (`base44/functions`)
+
+Serverless functions handle operations that go beyond simple entity CRUD: `aiChatStream` (streams LLM responses and executes the actions it decides on), `archiveProject` / `restoreProject` / `archivedProjects`, `deleteArea` / `deleteProduct` / `deleteProject` / `deleteDepartment`, `renameDepartment`, and `toggleTopThree`.
+
+### Frontend structure (`src/`)
+
+- `pages/` — top-level routes: `Dashboard`, `ChatPage`, auth pages (`Login`, `Register`, `ForgotPassword`, `ResetPassword`).
+- `components/layout/` — app shell, header, and left/right sidebars.
+- `components/areas/`, `components/products/`, `components/projects/` — the card + detail-modal pairs for each entity level.
+- `components/sidebar/` — stakeholder list, focus feed, status chart.
+- `components/ai/` — the floating chat widget and session history UI.
+- `components/modals/` — create/edit forms (`AreaForm`, `ProductForm`, `ProjectForm`, `TaskForm`, `CreateModal`, `FilterModal`).
+- `components/archive/` — the archive date-range panel.
+- `components/shared/` — cross-cutting UI (avatars, custom fields, stakeholder/product assignment, query error states).
+- `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`) plus chat (`useChatController`, `useChatMessages`, `useChatSessions`) and UI utility hooks.
+- `lib/` — cross-cutting logic: auth context, filter/highlight context, entity and task utilities, the Base44 app-params/query-client setup.
+
+## Getting Started
+
+### Prerequisites
+
+1. Clone the repository.
+2. Install dependencies: `npm install`.
+3. Install the Base44 CLI: `npm install -g base44@latest`.
+
+See the [Base44 CLI docs](https://docs.base44.com/developers/references/cli/get-started/overview) for direct CLI usage.
+
+### Run locally (full stack)
 
 ```bash
 base44 dev
 ```
 
-`base44 dev` starts the local Base44 development backend and, when this app is configured for it, also starts the frontend dev server for you. Use the frontend URL printed by the command.
+This starts the local Base44 backend and, since this project's `base44/config.jsonc` sets `site.serveCommand` to `npm run dev`, also starts the Vite frontend. Use the URL it prints.
 
-For example, when the Base44 project config includes a `serveCommand`, `base44 dev` can launch the frontend too:
-
-```json5
-{
-  "site": {
-    "serveCommand": "npm run dev"
-  }
-}
-```
-
-In a Base44 project this lives in `base44/config.jsonc`.
-
-## Run Only The Frontend
-
-If you only want to work on the frontend against the hosted Base44 backend, run:
+### Run frontend-only (against the hosted backend)
 
 ```bash
 npm run dev
 ```
 
-Open the local URL printed by Vite.
-
-## Use The Hosted Backend
-
-For frontend-only development, create or update `.env.local` in the project root:
+Point it at a hosted Base44 app by creating `.env.local`:
 
 ```bash
 VITE_BASE44_APP_ID=your_app_id
 VITE_BASE44_APP_BASE_URL=https://your-app.base44.app
 ```
 
-`VITE_BASE44_APP_ID` identifies the Base44 app.
+`base44 dev` injects these values automatically, so `.env.local` is mainly needed for frontend-only work.
 
-`VITE_BASE44_APP_BASE_URL` tells the Base44 Vite plugin where to send local `/api` requests. Point it at your deployed Base44 app URL when you want the local frontend to use the hosted backend.
+### Scripts
 
-When you use `base44 dev`, the command injects the local Base44 values for you, so `.env.local` is mainly needed for frontend-only workflows.
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the Vite dev server (frontend only). |
+| `npm run build` | Production build. |
+| `npm run preview` | Preview the production build locally. |
+| `npm run lint` / `npm run lint:fix` | ESLint. |
+| `npm run typecheck` | TypeScript check over JS via `jsconfig.json`. |
+| `npm test` / `npm run test:watch` | Run the Vitest unit test suite (business logic in `src/lib` and `src/hooks`). |
 
-## Publish Your Changes
+### Publishing
 
-After pushing your changes to git, open the Base44 dashboard and publish the app:
+Push your changes to git, then publish through the Base44 dashboard:
 
 ```bash
 base44 dashboard open
@@ -70,8 +118,6 @@ base44 dashboard open
 
 ## Docs & Support
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Base44 CLI command reference: [https://docs.base44.com/developers/references/cli/commands/introduction](https://docs.base44.com/developers/references/cli/commands/introduction)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+- [Using GitHub with Base44](https://docs.base44.com/Integrations/Using-GitHub)
+- [Base44 CLI command reference](https://docs.base44.com/developers/references/cli/commands/introduction)
+- [Base44 support](https://app.base44.com/support)
