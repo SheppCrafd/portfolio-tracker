@@ -152,6 +152,11 @@ File: `src/components/sidebar/StakeholderList.jsx`, `AddStakeholderModal.jsx`
   - `useUpdateChatSession` existed but nothing called it — chat session titles in the "<" history panel were read-only. Added rename (pencil icon, double-click to edit).
   - `useUpdateTaskStatus` existed but nothing called it either — however this one was genuinely dead code, not a missing capability, since task status updates already work fully through the generic `useUpdateTask` hook (`TaskTable`, `FocusFeed`). Deleted rather than force a redundant second call site.
 
+**2026-07-16 follow-up — stakeholders are now drag-and-droppable, two ways**, per explicit user request:
+  - **Drag onto a Project/Product/Task card to assign them** — a faster alternative to the existing dropdown pickers. Ring-highlights the card while hovering.
+  - **Drag onto a department section (expanded or collapsed) to reassign them** — same effect as picking a new department from their row's dropdown, just faster.
+  - This required a real architectural change: the drag source (sidebar) and the drop targets (main dashboard) didn't share a `DndContext` ancestor before, since the existing project-reparenting drag was scoped locally to `Dashboard.jsx`/`AreaModal.jsx`. Consolidated both into one `DndContext` at `AppShell.jsx` (React context follows the component tree, so this still reaches content rendered into a Portal — `AreaModal`, `ProjectDetailModal`, etc.) with a single dispatching handler (`useGlobalDragEnd`) that reads a `{ type, id }` tag off whatever's being dragged/dropped-on rather than hard-coding which components can interact with which — the existing project-reparenting behavior was preserved exactly, just routed through the same handler instead of two separate copies.
+
 ## 11. AI Assistant (chat copilot)
 
 File: `src/components/ai/ChatBox.jsx`, `src/components/ai/ChatMessageList.jsx`, `src/components/ai/ChatSessionList.jsx`, `base44/functions/aiChatStream/`

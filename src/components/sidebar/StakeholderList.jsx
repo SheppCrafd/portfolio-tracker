@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, GripVertical } from "lucide-react";
 import { useStakeholders, useDeleteStakeholder, useUpdateStakeholder } from "@/hooks/useStakeholders";
 import { useDepartments, useCreateDepartment, useRenameDepartment, useDeleteDepartment } from "@/hooks/useDepartments";
 import { useProducts } from "@/hooks/useProducts";
@@ -30,9 +32,30 @@ function StakeholderRow({ stakeholder, departmentNames, isHighlighted, onToggleH
     e.target.value = "";
   };
 
+  // Draggable onto a project/product/task card (to assign) or a department
+  // section (to reassign). A dedicated grip handle, not the whole row, since
+  // the row is already full of its own click targets (checkbox, avatar
+  // upload, inline-editable name, department select, delete).
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `stakeholder-${stakeholder.id}`,
+    data: { type: "stakeholder", stakeholderId: stakeholder.id, name: stakeholder.name },
+  });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
+    <div ref={setNodeRef} style={style} className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-foreground shrink-0"
+          aria-label="Drag to assign or move"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         <input type="checkbox" checked={isHighlighted} onChange={onToggleHighlight} />
         <label className="cursor-pointer shrink-0" title="Click to change photo">
           <Avatar name={stakeholder.name} avatarUrl={stakeholder.avatar_url} />
@@ -112,12 +135,34 @@ function DepartmentToolbar({ department, memberCount }) {
   );
 }
 
+// Wraps a whole department's AccordionItem so it's a stakeholder-drop target
+// (reassigns their department) whether the section is expanded or
+// collapsed — the drop zone can't just live inside AccordionContent, since
+// that unmounts when collapsed.
+function DepartmentSection({ id, name, children }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `department-drop-${id ?? "unassigned"}`,
+    data: { type: "department", id, name: name || "" },
+  });
+
+  return (
+    <div ref={setNodeRef} className={`rounded-md transition-colors ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : ""}`}>
+      <AccordionItem value={id ?? "__unassigned__"}>
+        <AccordionTrigger className="text-sm">{name || "Unassigned"}</AccordionTrigger>
+        <AccordionContent>{children}</AccordionContent>
+      </AccordionItem>
+    </div>
+  );
+}
+
 // Stakeholders grouped by department. Departments are a real, managed list
 // (create/rename/delete, all cascading to their members) rather than just
 // whatever strings happen to be set on existing stakeholders — so an empty
 // department can exist ready for people to be added to it, and stakeholders
 // whose department was deleted (or never set) fall into a synthetic
-// "Unassigned" bucket instead of disappearing.
+// "Unassigned" bucket instead of disappearing. Every stakeholder row is also
+// draggable, onto a department section (reassign) or a project/product/task
+// card elsewhere in the app (assign).
 export default function StakeholderList() {
   const { data: stakeholders = [] } = useStakeholders();
   const { data: departments = [] } = useDepartments();
@@ -208,32 +253,26 @@ export default function StakeholderList() {
         <p className="text-xs text-muted-foreground">No stakeholders added.</p>
       )}
 
-      <Accordion type="multiple" className="w-full">
+      <Accordion type="multiple" className="w-full space-y-1">
         {departments.map((dept) => {
           const members = stakeholders.filter((s) => s.department === dept.name);
           return (
-            <AccordionItem key={dept.id} value={dept.id}>
-              <AccordionTrigger className="text-sm">{dept.name}</AccordionTrigger>
-              <AccordionContent>
-                <DepartmentToolbar department={dept} memberCount={members.length} />
-                <div className="space-y-3">
-                  {members.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No stakeholders in this department yet.</p>
-                  ) : (
-                    members.map(renderRow)
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
+            <DepartmentSection key={dept.id} id={dept.id} name={dept.name}>
+              <DepartmentToolbar department={dept} memberCount={members.length} />
+              <div className="space-y-3">
+                {members.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No stakeholders in this department yet.</p>
+                ) : (
+                  members.map(renderRow)
+                )}
+              </div>
+            </DepartmentSection>
           );
         })}
         {unassignedStakeholders.length > 0 && (
-          <AccordionItem value="__unassigned__">
-            <AccordionTrigger className="text-sm">Unassigned</AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-3">{unassignedStakeholders.map(renderRow)}</div>
-            </AccordionContent>
-          </AccordionItem>
+          <DepartmentSection id={null} name="">
+            <div className="space-y-3">{unassignedStakeholders.map(renderRow)}</div>
+          </DepartmentSection>
         )}
       </Accordion>
 

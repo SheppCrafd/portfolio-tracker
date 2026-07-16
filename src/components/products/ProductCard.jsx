@@ -31,7 +31,7 @@ export default function ProductCard({ product }) {
   const stakeholders = allStakeholders.filter((st) => product.stakeholder_ids?.includes(st.id));
   const projects = allProjects.filter((p) => p.parent_product_id === product.id && !excludedIds.includes(p.id));
 
-  const { setNodeRef, isOver } = useDroppable({ id: product.id });
+  const { setNodeRef, isOver } = useDroppable({ id: product.id, data: { type: "product", id: product.id } });
 
   const isDimmed = useHighlightDim(product.stakeholder_ids || []);
 
@@ -41,7 +41,11 @@ export default function ProductCard({ product }) {
   const completionPct = productTasks.length ? Math.round((doneCount / productTasks.length) * 100) : 0;
 
   return (
-    <div data-product-card={product.id} className={`relative z-10 bg-card border border-border rounded-xl p-4 overflow-hidden ${isDimmed ? "opacity-30" : ""}`}>
+    <div
+      ref={setNodeRef}
+      data-product-card={product.id}
+      className={`relative z-10 bg-card border border-border rounded-xl p-4 overflow-hidden ${isDimmed ? "opacity-30" : ""} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
+    >
       <button
         onClick={() => setIsDetailOpen(true)}
         className="absolute top-3 right-3 z-20 text-muted-foreground hover:text-foreground"
@@ -75,7 +79,6 @@ export default function ProductCard({ product }) {
       </div>
 
       <div
-        ref={setNodeRef}
         className={`relative z-[1] mt-4 space-y-2 min-h-[80px] rounded-lg p-2 transition-colors ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : "bg-transparent"}`}
       >
         {projects.length === 0 ? (

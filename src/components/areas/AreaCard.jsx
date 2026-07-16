@@ -17,7 +17,7 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
 
   const { data: allTasks = [] } = useAllTasks();
 
-  const { setNodeRef, isOver } = useDroppable({ id: area.id });
+  const { setNodeRef, isOver } = useDroppable({ id: area.id, data: { type: "area", id: area.id } });
 
   const { value: title, handleInput } = useEditableField(
     area.title,

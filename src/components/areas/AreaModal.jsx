@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { DndContext } from "@dnd-kit/core";
 import Portal from "@/lib/Portal";
 import { useAreas, useUpdateArea } from "@/hooks/useAreas";
 import { useProducts } from "@/hooks/useProducts";
-import { useProjects, useMoveProject } from "@/hooks/useProjects";
+import { useProjects } from "@/hooks/useProjects";
 import { useFilter } from "@/lib/FilterContext";
 import EditableText from "@/components/shared/EditableText";
 import CustomFieldsSection from "@/components/shared/CustomFieldsSection";
@@ -17,7 +16,6 @@ export default function AreaModal({ area, onClose }) {
   const { data: allProjects = [] } = useProjects();
   const { excludedIds } = useFilter();
   const updateArea = useUpdateArea();
-  const moveProject = useMoveProject();
 
   // `area` is a snapshot from the moment the card was expanded — re-resolve
   // against the live query so edits made in this view (title, description,
@@ -33,13 +31,6 @@ export default function AreaModal({ area, onClose }) {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
-
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      moveProject.mutate({ id: active.id, parent_product_id: over.id });
-    }
-  };
 
   return (
     <Portal>
@@ -78,11 +69,9 @@ export default function AreaModal({ area, onClose }) {
             </div>
           ) : (
             <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
-              <DndContext onDragEnd={handleDragEnd}>
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </DndContext>
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
               {standaloneProjects.map((project) => (
                 <ProjectCard key={project.id} project={project} />
               ))}

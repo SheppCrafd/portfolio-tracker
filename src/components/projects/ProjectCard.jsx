@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Expand, GripVertical } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import ProjectNotes from "@/components/projects/ProjectNotes";
 import TaskTableModal from "@/components/projects/TaskTableModal";
@@ -43,9 +43,20 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
     setNewNoteText("");
   };
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: project.id,
+    data: { type: "project", id: project.id },
   });
+  // Also a stakeholder-drop target: dragging a stakeholder from the sidebar
+  // onto this card assigns them to the project.
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `project-drop-${project.id}`,
+    data: { type: "project", id: project.id },
+  });
+  const setRefs = (node) => {
+    setDragRef(node);
+    setDropRef(node);
+  };
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -66,10 +77,10 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setRefs}
       style={style}
       data-project-card={project.id}
-      className={`relative bg-background border border-border rounded-lg p-3 transition-colors ${isDimmed ? "opacity-30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"}`}
+      className={`relative bg-background border border-border rounded-lg p-3 transition-colors ${isDimmed ? "opacity-30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
     >
       <div 
         {...attributes} 
