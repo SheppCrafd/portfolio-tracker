@@ -400,12 +400,11 @@ export default function TaskTable({ project }) {
               onDelete={handleDelete}
             />
           ))}
-          <tr className="bg-blue-500/10">
+          <tr className="bg-primary/10">
             <td className="p-2 min-w-0">
               <div className="flex items-center gap-1.5">
-                <button onClick={createNewTask} aria-label="New task" className="flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">
+                <button onClick={createNewTask} aria-label="New task" title="New task" className="flex items-center shrink-0 text-primary">
                   <Plus className="w-4 h-4" />
-                  New Task
                 </button>
                 <input
                   ref={newRowInputRef}
