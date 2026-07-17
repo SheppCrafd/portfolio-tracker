@@ -243,19 +243,20 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
       <div className="flex items-start gap-3 pr-5 pl-5">
         <button
           onClick={() => setIsTableOpen(true)}
-          className="shrink-0 mt-1 grid grid-cols-2 gap-0.5 border border-border rounded overflow-hidden w-11 h-11 text-xs z-20 select-none"
+          className="shrink-0 mt-1 grid grid-cols-2 gap-1 border border-border rounded overflow-hidden w-16 h-16 text-sm z-20 select-none"
           title="Open Task Table"
         >
           {quadrants.map((q) => (
             <div
               key={q.quadrant}
               className={`flex items-center justify-center transition-colors ${
-                q.hasFocus
+                q.hasHighlightedStakeholder
+                  ? "text-foreground font-bold"
+                  : q.hasFocus
                   ? "bg-green-800 text-white font-bold"
-                  : q.hasHighlightedStakeholder
-                  ? "bg-primary/25 text-foreground font-bold"
                   : "bg-muted/40 text-muted-foreground"
-              } ${q.hasHighlightedStakeholder ? "ring-2 ring-inset ring-primary" : ""}`}
+              }`}
+              style={q.hasHighlightedStakeholder ? { backgroundColor: STATUS_COLORS.DONE } : undefined}
             >
               {q.count}
             </div>

@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useHighlight } from "@/lib/HighlightContext";
 import { isHighlightMatch } from "@/hooks/useHighlightDim";
 import { confirmThen } from "@/lib/entityUtils";
-import { isTaskDone } from "@/lib/taskUtils";
+import { isTaskDone, STATUS_COLORS } from "@/lib/taskUtils";
 import StatusDropdown, { DEFAULT_STATUSES } from "@/components/projects/StatusDropdown";
 import TaskAttachments from "@/components/projects/TaskAttachments";
 import EditableText from "@/components/shared/EditableText";
@@ -105,7 +105,8 @@ function TaskRow({ task, allStakeholders, isMatched, updateTask, onToggleTopThre
   return (
     <tr
       ref={setNodeRef}
-      className={`border-b border-border last:border-0 transition-colors ${isMatched ? "bg-primary/5" : ""} ${isOver ? "ring-2 ring-inset ring-primary bg-primary/5" : ""}`}
+      className={`border-b border-border last:border-0 transition-colors ${isOver ? "ring-2 ring-inset ring-primary bg-primary/5" : ""}`}
+      style={isMatched && !isOver ? { backgroundColor: STATUS_COLORS.DONE } : undefined}
     >
       <td className="p-2 min-w-0 max-w-[200px]">
         <EditableText
