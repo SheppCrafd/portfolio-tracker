@@ -223,7 +223,7 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
       ref={setRefs}
       style={style}
       data-project-card={project.id}
-      className={`relative bg-background border border-border rounded-lg p-3 pb-6 transition-colors ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
+      className={`relative bg-card border border-border rounded-xl p-3 pb-6 transition-colors ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
     >
       <div
         {...attributes}

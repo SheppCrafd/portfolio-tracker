@@ -48,7 +48,7 @@ export default function ProductCard({ product }) {
     <div
       ref={setNodeRef}
       data-product-card={product.id}
-      className={`relative z-10 bg-card border border-border rounded-xl p-4 overflow-hidden ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
+      className={`relative z-10 bg-card border border-border rounded-xl shadow-sm p-4 overflow-hidden ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
     >
       <button
         onClick={() => setIsDetailOpen(true)}
