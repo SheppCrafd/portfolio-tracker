@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Expand, GripVertical, Link2, Plus, X } from "lucide-react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import Portal from "@/lib/Portal";
 import { usePositionedMenu } from "@/hooks/usePositionedMenu";
 import ProjectNotes from "@/components/projects/ProjectNotes";
@@ -185,9 +184,9 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
 
   const addNote = (type, content) => createProjectNote.mutate({ project_id: project.id, type, content });
 
-  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: project.id,
-    data: { type: "project", id: project.id },
+    data: { type: "project", id: project.id, title: project.title },
   });
   // Also a stakeholder-drop target: dragging a stakeholder from the sidebar
   // onto this card assigns them to the project.
@@ -200,12 +199,14 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
     setDropRef(node);
   };
 
+  // The card itself stays put as a faded "ghost" while dragging — it's
+  // nested inside ProductCard/AreaCard's own stacking contexts and the
+  // scrollable main pane, so no z-index on this element could ever lift it
+  // above sibling cards or escape the scroll clipping. The actual moving
+  // visual under the cursor is AppShell's <DragOverlay>, which portals
+  // straight to document.body and is unaffected by any of that.
   const style = {
-    transform: CSS.Translate.toString(transform),
-    // Lifted above literally everything else on the page while actively
-    // being dragged — per direct request, no exceptions.
-    zIndex: isDragging ? 100 : 10,
-    opacity: isDragging ? 0.8 : 1,
+    opacity: isDragging ? 0.4 : 1,
   };
 
   const doneTasks = tasks.filter(isTaskDone);

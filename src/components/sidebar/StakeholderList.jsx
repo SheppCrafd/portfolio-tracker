@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Plus, X, Trash2, GripVertical, Pencil } from "lucide-react";
 import { useStakeholders, useDeleteStakeholder, useUpdateStakeholder } from "@/hooks/useStakeholders";
@@ -56,17 +55,17 @@ function StakeholderRow({ stakeholder, isHighlighted, onToggleHighlight, onRemov
   // onto a department became the way to do that). A dedicated grip handle,
   // not the whole row, since the row is already full of its own click
   // targets (checkbox, avatar upload, inline-editable name, delete).
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `stakeholder-${stakeholder.id}`,
-    data: { type: "stakeholder", stakeholderId: stakeholder.id, name: stakeholder.name },
+    data: { type: "stakeholder", stakeholderId: stakeholder.id, name: stakeholder.name, avatarUrl: stakeholder.avatar_url },
   });
+  // The row itself stays put as a faded "ghost" while dragging — it's
+  // nested inside the accordion's clipped, scrollable sidebar, so no
+  // z-index on this element could ever escape that. The actual moving
+  // visual under the cursor is AppShell's <DragOverlay>, which portals
+  // straight to document.body and is unaffected by any of that.
   const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-    // Lifted above literally everything else on the page while actively
-    // being dragged — per direct request, no exceptions.
-    zIndex: isDragging ? 100 : undefined,
-    position: "relative",
+    opacity: isDragging ? 0.4 : 1,
   };
 
   return (
