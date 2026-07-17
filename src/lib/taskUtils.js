@@ -49,16 +49,16 @@ export function getQuadrantCounts(tasks = [], highlights = []) {
 // Single source of truth for the 7-way status breakdown used by both the
 // project-card stacked bar and the sidebar status chart. Each consumer owns
 // its own rendering; this only owns the categorization and display order.
-// In Progress and Pending Feedback are swapped from spec reading order per
-// direct user request.
+// Ordered Not Started (left) through Done (right) — a left-to-right progress
+// reading — per direct user request.
 export const STATUS_BUCKETS = [
-  { key: "DONE", label: "Done", match: (s) => s === "DONE" || s === "DELEGATED_DONE" },
-  { key: "DELEGATED", label: "Delegated", match: (s) => s === "DELEGATED" },
-  { key: "PENDING_FEEDBACK", label: "Pending Feedback", match: (s) => s === "PENDING_FEEDBACK" },
-  { key: "BLOCKED", label: "Blocked", match: (s) => s === "BLOCKED" },
-  { key: "IN_PROGRESS", label: "In Progress", match: (s) => s === "IN_PROGRESS" },
-  { key: "ON_HOLD", label: "On Hold", match: (s) => s === "ON_HOLD" },
   { key: "NOT_STARTED", label: "Not Started", match: (s) => !s || s === "NOT_STARTED" },
+  { key: "ON_HOLD", label: "On Hold", match: (s) => s === "ON_HOLD" },
+  { key: "IN_PROGRESS", label: "In Progress", match: (s) => s === "IN_PROGRESS" },
+  { key: "BLOCKED", label: "Blocked", match: (s) => s === "BLOCKED" },
+  { key: "PENDING_FEEDBACK", label: "Pending Feedback", match: (s) => s === "PENDING_FEEDBACK" },
+  { key: "DELEGATED", label: "Delegated", match: (s) => s === "DELEGATED" },
+  { key: "DONE", label: "Done", match: (s) => s === "DONE" || s === "DELEGATED_DONE" },
 ];
 
 // Literal, theme-independent colors — the spec calls for specific colors per
