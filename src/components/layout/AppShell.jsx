@@ -9,8 +9,24 @@ import ArchivePanel from "@/components/archive/ArchivePanel";
 import Avatar from "@/components/shared/Avatar";
 import { useGlobalDragEnd } from "@/hooks/useGlobalDragEnd";
 
+const LEFT_STORAGE_KEY = "portfolio_tracker_left_sidebar_open";
+const RIGHT_STORAGE_KEY = "portfolio_tracker_right_sidebar_open";
+
+const loadOpenState = (key) => {
+  try {
+    return localStorage.getItem(key) !== "false";
+  } catch {
+    return true;
+  }
+};
+
 // Locks the app into a CSS grid-template-areas layout: header spans the top,
-// stakeholders sit left, main content center, focus/stats sit right.
+// stakeholders sit left, main content center, focus/stats sit right. Either
+// side panel can be collapsed via Header's hamburger toggles — collapsing
+// reflows the center column to fill the freed space (not an overlay), and
+// the choice persists across sessions the same lightweight way
+// useChatController persists icon choice (plain localStorage, no state
+// library).
 //
 // The single DndContext lives here (not scoped to Dashboard/AreaModal like
 // it used to be) because dragging a stakeholder from the left sidebar onto a
@@ -21,7 +37,24 @@ import { useGlobalDragEnd } from "@/hooks/useGlobalDragEnd";
 export default function AppShell({ children }) {
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [activeDragData, setActiveDragData] = useState(null);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(() => loadOpenState(LEFT_STORAGE_KEY));
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(() => loadOpenState(RIGHT_STORAGE_KEY));
   const handleDragEnd = useGlobalDragEnd();
+
+  const toggleLeftSidebar = () => {
+    setIsLeftSidebarOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(LEFT_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
+  const toggleRightSidebar = () => {
+    setIsRightSidebarOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem(RIGHT_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
 
   return (
     <DndContext
@@ -34,24 +67,37 @@ export default function AppShell({ children }) {
       onDragCancel={() => setActiveDragData(null)}
     >
       <div
-        className="h-screen grid overflow-hidden"
+        className="h-screen grid overflow-hidden transition-[grid-template-columns] duration-200 ease-in-out"
         style={{
           gridTemplateAreas: `"header header header" "leftsidebar main sidebar"`,
-          gridTemplateColumns: "280px 1fr 320px",
+          gridTemplateColumns: `${isLeftSidebarOpen ? "280px" : "0px"} 1fr ${isRightSidebarOpen ? "320px" : "0px"}`,
           gridTemplateRows: "64px 1fr",
         }}
       >
         <div style={{ gridArea: "header" }}>
-          <Header />
+          <Header
+            isLeftSidebarOpen={isLeftSidebarOpen}
+            onToggleLeftSidebar={toggleLeftSidebar}
+            isRightSidebarOpen={isRightSidebarOpen}
+            onToggleRightSidebar={toggleRightSidebar}
+          />
         </div>
-        <aside style={{ gridArea: "leftsidebar" }} className="overflow-y-auto border-r border-border bg-card p-4">
-          <LeftSidebar />
+        <aside style={{ gridArea: "leftsidebar" }} className="overflow-hidden border-r border-border bg-card">
+          {isLeftSidebarOpen && (
+            <div className="h-full overflow-y-auto p-4">
+              <LeftSidebar />
+            </div>
+          )}
         </aside>
         <main style={{ gridArea: "main" }} className="overflow-y-auto p-6 bg-background">
           {children}
         </main>
-        <aside style={{ gridArea: "sidebar" }} className="overflow-y-auto border-l border-border bg-card p-4">
-          <Sidebar />
+        <aside style={{ gridArea: "sidebar" }} className="overflow-hidden border-l border-border bg-card">
+          {isRightSidebarOpen && (
+            <div className="h-full overflow-y-auto p-4">
+              <Sidebar />
+            </div>
+          )}
         </aside>
         <ChatBox />
 

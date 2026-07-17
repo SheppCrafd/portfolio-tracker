@@ -83,6 +83,38 @@
     --status-in-progress: #ff9800;
     --status-done: #4caf50;
   }
+
+  /* Curated accent-theme presets — set via `data-accent` on <html> by
+     useAccentTheme.js. Each only overrides the primary/ring/sidebar-accent
+     tokens (background/card/border/muted stay the shared neutral base), so
+     every preset is guaranteed to stay coherent rather than risking a clash.
+     Deliberately not scoped separately under `.dark` — light and dark share
+     the same accent values here, and since this rule has equal specificity
+     to `.dark` but comes later in the stylesheet, it already wins in both
+     modes. */
+  [data-accent="indigo"] {
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 243 75% 59%;
+    --sidebar-primary: 243 75% 59%;
+    --sidebar-ring: 243 75% 59%;
+  }
+
+  [data-accent="emerald"] {
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --ring: 160 84% 39%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-ring: 160 84% 39%;
+  }
+
+  [data-accent="amber"] {
+    --primary: 38 92% 50%;
+    --primary-foreground: 20 40% 12%;
+    --ring: 38 92% 50%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-ring: 38 92% 50%;
+  }
 }
 
 
