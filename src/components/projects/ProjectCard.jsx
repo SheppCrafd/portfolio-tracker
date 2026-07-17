@@ -202,7 +202,10 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    zIndex: isDragging ? 50 : 10,
+    // Lifted above ordinary page content while actively being dragged, but
+    // kept below modals (z-50) and the chat widget/its popovers (z-50 and
+    // up) — those should never be covered by a drag in progress.
+    zIndex: isDragging ? 45 : 10,
     opacity: isDragging ? 0.8 : 1,
   };
 

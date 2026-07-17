@@ -35,7 +35,7 @@ function HighlightCheckbox({ category, count, isChecked, onToggle, stakeholderNa
   );
 }
 
-function StakeholderRow({ stakeholder, departmentNames, isHighlighted, onToggleHighlight, onRemove, counts }) {
+function StakeholderRow({ stakeholder, isHighlighted, onToggleHighlight, onRemove, counts }) {
   const updateStakeholder = useUpdateStakeholder();
 
   const { value: name, handleInput: handleNameInput, handleBlur: handleNameBlur, handleKeyDown: handleNameKeyDown } = useEditableField(
@@ -52,9 +52,10 @@ function StakeholderRow({ stakeholder, departmentNames, isHighlighted, onToggleH
   };
 
   // Draggable onto a project/product/task card (to assign) or a department
-  // section (to reassign). A dedicated grip handle, not the whole row, since
-  // the row is already full of its own click targets (checkbox, avatar
-  // upload, inline-editable name, department select, delete).
+  // section (to reassign — the department select was removed once dragging
+  // onto a department became the way to do that). A dedicated grip handle,
+  // not the whole row, since the row is already full of its own click
+  // targets (checkbox, avatar upload, inline-editable name, delete).
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `stakeholder-${stakeholder.id}`,
     data: { type: "stakeholder", stakeholderId: stakeholder.id, name: stakeholder.name },
@@ -62,6 +63,11 @@ function StakeholderRow({ stakeholder, departmentNames, isHighlighted, onToggleH
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
+    // Lifted above ordinary page content while actively being dragged, but
+    // kept below modals (z-50) and the chat widget/its popovers (z-50 and
+    // up) — those should never be covered by a drag in progress.
+    zIndex: isDragging ? 45 : undefined,
+    position: "relative",
   };
 
   return (
@@ -90,16 +96,9 @@ function StakeholderRow({ stakeholder, departmentNames, isHighlighted, onToggleH
           >
             {name}
           </span>
-          <select
-            value={stakeholder.department || ""}
-            onChange={(e) => updateStakeholder.mutate({ id: stakeholder.id, data: { department: e.target.value } })}
-            className="text-[9px] text-muted-foreground bg-transparent outline-none w-full truncate"
-          >
-            <option value="">Unassigned</option>
-            {departmentNames.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          <span className="text-[9px] text-muted-foreground truncate block">
+            {stakeholder.department || "Unassigned"}
+          </span>
         </div>
         <button
           onClick={onRemove}
@@ -251,7 +250,6 @@ export default function StakeholderList() {
     <StakeholderRow
       key={s.id}
       stakeholder={s}
-      departmentNames={departmentNames}
       isHighlighted={(category) => isHighlighted(s.id, category)}
       onToggleHighlight={(category) => toggleHighlight(s.id, category)}
       onRemove={() => handleRemove(s)}
