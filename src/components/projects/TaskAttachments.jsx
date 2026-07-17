@@ -55,7 +55,7 @@ export default function TaskAttachments({ attachments = [], onSave }) {
             </div>
           ))}
         </div>
-        <label className="flex items-center justify-center gap-1.5 text-xs px-2 py-1.5 bg-secondary text-secondary-foreground rounded cursor-pointer hover:opacity-80">
+        <label className="flex items-center justify-center gap-1.5 text-xs px-2 py-1.5 bg-secondary text-secondary-foreground border border-border rounded cursor-pointer hover:opacity-80">
           <Upload className="w-3 h-3" />
           {isUploading ? "Uploading..." : "Add file"}
           <input type="file" onChange={handleFileChange} disabled={isUploading} className="hidden" />

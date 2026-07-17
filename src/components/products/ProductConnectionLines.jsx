@@ -24,13 +24,26 @@ export default function ProductConnectionLines({ projects = [] }) {
       const projectEl = document.querySelector(`[data-project-card="${project.id}"]`);
       if (!projectEl) continue;
       const projectRect = projectEl.getBoundingClientRect();
-      const from = { x: projectRect.left, y: projectRect.top + projectRect.height / 2 };
+      const projectCenterX = projectRect.left + projectRect.width / 2;
 
       for (const productId of relatedIds) {
         const productEl = document.querySelector(`[data-product-card="${productId}"]`);
         if (!productEl) continue;
         const productRect = productEl.getBoundingClientRect();
-        const to = { x: productRect.right, y: productRect.top + 24 };
+        const productCenterX = productRect.left + productRect.width / 2;
+
+        // Anchor each end on whichever horizontal edge faces the other card,
+        // so the curve approaches from a sensible side no matter where the
+        // two cards actually land relative to each other in the masonry grid.
+        const projectFacesRight = projectCenterX <= productCenterX;
+        const from = {
+          x: projectFacesRight ? projectRect.right : projectRect.left,
+          y: projectRect.top + projectRect.height / 2,
+        };
+        const to = {
+          x: projectFacesRight ? productRect.left : productRect.right,
+          y: productRect.top + 24,
+        };
         next.push({ key: `${project.id}-${productId}`, from, to });
       }
     }
@@ -59,7 +72,12 @@ export default function ProductConnectionLines({ projects = [] }) {
   if (lines.length === 0) return null;
 
   return (
-    <svg className="fixed inset-0 pointer-events-none z-[5]" width="100vw" height="100vh">
+    // z-[15]: AreaCard/ProductCard are each `relative z-10`, opaque stacking
+    // contexts, so a lower z-index here painted entirely underneath them —
+    // this is why the lines were invisible. 15 sits just above those cards
+    // but still well below every floating UI element (archive button z-40,
+    // modals/popovers z-50+, chat z-[110]), so it only ever overlaps cards.
+    <svg className="fixed inset-0 pointer-events-none z-[15]" width="100vw" height="100vh">
       {lines.map((line) => {
         const midX = (line.from.x + line.to.x) / 2;
         return (

@@ -13,7 +13,7 @@ export default function QueryError({ error, onRetry, label = "Couldn't load this
       {onRetry && (
         <button
           onClick={onRetry}
-          className="text-xs px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:opacity-80"
+          className="text-xs px-3 py-1.5 bg-secondary text-secondary-foreground border border-border rounded-md hover:opacity-80"
         >
           Retry
         </button>

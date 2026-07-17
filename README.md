@@ -22,6 +22,8 @@ Each level is rendered as a card, nested inside its parent's card, so the dashbo
 - **Left sidebar** — stakeholders grouped by department, with per-category (tasks/notes/projects/products) counts that toggle a color-coded highlight (a tint on the matching cards/rows) across the dashboard. Each stakeholder is drag-and-droppable: drop one onto a project/product/task card to assign them, or onto a department to reassign them (department is otherwise not editable from the row).
 - **AI chat assistant** — a floating chat widget (and a full `/chat` page) backed by a streaming LLM function that can create/update tasks, projects, products, and areas, add notes, mark focus items, and answer questions about your data, including archived items. The widget is a real draggable/resizable window (drag the header to move it, drag any edge or corner to resize) and remembers its position and size between sessions.
 - **Archive view** — a date-range view of everything that was active during that window, including archived projects/tasks, which remain fully editable and can be restored.
+- **Product connection lines** — when a project is linked to a product beyond its primary parent (via the "Connect Products" control), a dashed curve is drawn between the two cards, layered so it crosses over Area/Product/Project cards but stays underneath every other UI element (popovers, modals, the chat widget, the archive button).
+- **Collapsible sidebars, dark mode, and accent themes** — both side panels collapse via hamburger toggles in the header (state persists across sessions), and a user menu (top right) links to a **Settings** page for switching Light/Dark/System theme, picking one of four curated accent colors (Slate/Indigo/Emerald/Amber), logging out, or deleting your account. Account deletion is best-effort: it disables the account and clears your profile, but deliberately never touches shared Area/Product/Project/Task data.
 
 ### In-chat commands
 
@@ -50,7 +52,7 @@ The client-side list lives in `src/lib/chatCommands.js`; the matching server-sid
 
 ### Architecture
 
-- **Frontend**: React 18 + Vite, React Router, TanStack Query for data fetching/caching, Zustand for lightweight client state, Tailwind CSS + Radix UI primitives (via `shadcn`-style components in `src/components/ui`) for the design system. Animation is plain Tailwind (`tailwindcss-animate`'s `animate-in`/`fade-in`/`zoom-in` utilities) plus a handful of custom CSS keyframes in `src/index.css` (the chat "thinking" icon, message fade-in, launch pulse) — no animation library. The status bar chart (`TaskStatistics`) is a hand-rolled stacked-div bar, not a charting library.
+- **Frontend**: React 18 + Vite, React Router, TanStack Query for data fetching/caching, Zustand for lightweight client state, Tailwind CSS + Radix UI primitives (via `shadcn`-style components in `src/components/ui`) for the design system. Animation is plain Tailwind (`tailwindcss-animate`'s `animate-in`/`fade-in`/`zoom-in` utilities) plus a handful of custom CSS keyframes in `src/index.css` (the chat "thinking" icon, message fade-in, launch pulse) — no animation library. The status bar chart (`TaskStatistics`) is a hand-rolled stacked-div bar, not a charting library. Dark/light/system theming is wired via `next-themes` (`ThemeProvider` in `App.jsx`); accent color is a separate `data-accent` attribute + CSS-variable override system (`useAccentTheme`), independent of light/dark.
 - **Backend**: [Base44](https://base44.com) — a hosted backend providing entity storage/CRUD, auth, and serverless functions. The frontend talks to it through `@base44/sdk`, configured in `src/api/base44Client.js`.
 - **Build tooling**: Vite with the `@base44/vite-plugin` (dev-only HMR notifier, visual-edit agent, and analytics hooks), ESLint, TypeScript in `checkJs` mode for type-checking JS via `jsconfig.json`, and Vitest for unit tests.
 
@@ -72,19 +74,20 @@ Soft-delete (`deleted_at`) and archive (`archived_at`/`is_archived`) fields are 
 
 ### Backend functions (`base44/functions`)
 
-Serverless functions handle operations that go beyond simple entity CRUD: `aiChatStream` (streams LLM responses and executes the actions it decides on), `archiveProject` / `restoreProject` / `archivedProjects`, `deleteArea` / `deleteProduct` / `deleteProject` / `deleteDepartment`, `renameDepartment`, and `toggleTopThree`.
+Serverless functions handle operations that go beyond simple entity CRUD: `aiChatStream` (streams LLM responses and executes the actions it decides on), `archiveProject` / `restoreProject` / `archivedProjects`, `deleteArea` / `deleteProduct` / `deleteProject` / `deleteDepartment`, `renameDepartment`, `toggleTopThree`, and `deactivateAccount` (best-effort account deletion — disables the user record and clears profile fields via service-role; there's no SDK operation, even under service-role, to remove the underlying login credential itself).
 
 ### Frontend structure (`src/`)
 
-- `pages/` — top-level routes: `Dashboard`, `ChatPage`, auth pages (`Login`, `Register`, `ForgotPassword`, `ResetPassword`).
-- `components/layout/` — app shell, header, and left/right sidebars.
-- `components/areas/`, `components/products/`, `components/projects/` — the card + detail-modal pairs for each entity level.
+- `pages/` — top-level routes: `Dashboard`, `ChatPage`, `SettingsPage`, auth pages (`Login`, `Register`, `ForgotPassword`, `ResetPassword`).
+- `components/layout/` — app shell (owns collapsible sidebar state), header (hamburger toggles + `UserMenu`), and left/right sidebars.
+- `components/areas/`, `components/products/`, `components/projects/` — the card + detail-modal pairs for each entity level, plus `ProductConnectionLines` (the cross-card connector curves, rendered once at the dashboard level).
 - `components/sidebar/` — stakeholder list, focus feed, status chart.
 - `components/ai/` — the floating chat widget, session history UI, and the `/` command menu (`ChatCommandMenu`).
 - `components/modals/` — create/edit forms (`AreaForm`, `ProductForm`, `ProjectForm`, `TaskForm`, `CreateModal`, `FilterModal`).
 - `components/archive/` — the archive date-range panel.
+- `components/settings/` — the Settings page's sections: `AccountSection` (profile, log out, delete account), `AppearanceSection` (theme + accent picker), `DeleteAccountDialog`.
 - `components/shared/` — cross-cutting UI: avatars, date fields, custom fields, stakeholder/product assignment, per-column table filtering (`ColumnFilterMenu`), the shared floating-menu shell (`PositionedPopover`) every dropdown/popover in the app is built on, and query error states.
-- `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`) plus chat (`useChatController`, `useChatMessages`, `useChatSessions`, `useSlashCommand`), the chat widget's window geometry (`useWindowGeometry`), drag-and-drop (`useGlobalDragEnd`), and other UI utility hooks (inline editing, date selection, file upload, highlight matching).
+- `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`) plus chat (`useChatController`, `useChatMessages`, `useChatSessions`, `useSlashCommand`), the chat widget's window geometry (`useWindowGeometry`), drag-and-drop (`useGlobalDragEnd`), accent theme persistence (`useAccentTheme`), and other UI utility hooks (inline editing, date selection, file upload, highlight matching).
 - `lib/` — cross-cutting logic: auth context, filter/highlight context, entity and task utilities, the Base44 app-params/query-client setup.
 
 ## Getting Started

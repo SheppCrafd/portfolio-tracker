@@ -18,7 +18,7 @@ export default function StatusDropdown({ task, onStatusChange, statusOptions = D
       <button
         ref={triggerRef}
         onClick={toggle}
-        className="text-[10px] px-2 py-1 rounded-full bg-secondary text-secondary-foreground capitalize whitespace-nowrap"
+        className="text-[10px] px-2 py-1 rounded-full bg-secondary text-secondary-foreground border border-border capitalize whitespace-nowrap"
       >
         {task.status.replace(/_/g, " ")}
       </button>

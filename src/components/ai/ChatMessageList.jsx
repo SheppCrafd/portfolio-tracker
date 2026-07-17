@@ -46,14 +46,14 @@ export default function ChatMessageList({ messages, isComputing, iconChoice, has
               <button
                 onClick={() => onConfirm(m)}
                 disabled={resolvingId === m.id}
-                className="text-xs px-2.5 py-1 bg-destructive text-destructive-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+                className="text-xs px-2.5 py-1 bg-destructive text-destructive-foreground border border-border rounded-md hover:opacity-90 disabled:opacity-50"
               >
                 Yes, do it
               </button>
               <button
                 onClick={() => onCancel(m)}
                 disabled={resolvingId === m.id}
-                className="text-xs px-2.5 py-1 bg-secondary text-secondary-foreground rounded-md hover:opacity-80 disabled:opacity-50"
+                className="text-xs px-2.5 py-1 bg-secondary text-secondary-foreground border border-border rounded-md hover:opacity-80 disabled:opacity-50"
               >
                 Cancel
               </button>

@@ -41,7 +41,7 @@ export default function ArchivedTaskList({ projectId }) {
             <div className="shrink-0 flex items-center gap-1.5">
               <button
                 onClick={() => updateTask.mutate({ id: task.id, data: { archived_at: null, project_id: projectId } })}
-                className="flex items-center gap-1.5 text-[11px] px-2 py-1 bg-secondary text-secondary-foreground rounded-md hover:opacity-80"
+                className="flex items-center gap-1.5 text-[11px] px-2 py-1 bg-secondary text-secondary-foreground border border-border rounded-md hover:opacity-80"
               >
                 <RotateCcw className="w-3 h-3" />
                 Restore

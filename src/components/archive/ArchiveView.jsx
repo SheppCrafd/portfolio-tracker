@@ -79,7 +79,7 @@ export default function ArchiveView() {
                     e.stopPropagation();
                     restoreProject.mutate(item.id);
                   }}
-                  className="text-sm flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md hover:opacity-80"
+                  className="text-sm flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground border border-border rounded-md hover:opacity-80"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Restore

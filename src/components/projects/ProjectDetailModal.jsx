@@ -308,7 +308,7 @@ export default function ProjectDetailModal({ project, onClose }) {
                   restoreProject.mutate(project.id);
                   onClose();
                 }}
-                className="text-xs flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md font-medium transition-colors shadow-sm"
+                className="text-xs flex items-center gap-1.5 bg-primary text-primary-foreground border border-border hover:bg-primary/90 px-4 py-2 rounded-md font-medium transition-colors shadow-sm"
               >
                 <RotateCcw className="w-4 h-4" /> Restore Project
               </button>

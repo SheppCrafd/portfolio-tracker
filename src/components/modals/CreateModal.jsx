@@ -44,7 +44,7 @@ export default function CreateModal() {
               {TYPES.map((t) => (
                 <button
                   key={t.key}
-                  className={`text-xs px-2.5 py-1 rounded-full ${type === t.key ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                  className={`text-xs px-2.5 py-1 rounded-full border border-border ${type === t.key ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                   onClick={() => setType({ createModalType: t.key })}
                 >
                   {t.label}

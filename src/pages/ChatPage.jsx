@@ -43,7 +43,7 @@ export default function ChatPage() {
           <div className="p-3">
             <button
               onClick={chat.handleNewChat}
-              className="w-full flex items-center justify-center gap-1.5 text-sm px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:opacity-80"
+              className="w-full flex items-center justify-center gap-1.5 text-sm px-3 py-2 bg-secondary text-secondary-foreground border border-border rounded-md hover:opacity-80"
             >
               <Plus className="w-4 h-4" />
               New chat

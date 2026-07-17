@@ -82,7 +82,7 @@ export default function CustomFieldsSection({
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custom Fields</p>
         <button
           onClick={() => setIsAdding((v) => !v)}
-          className="flex items-center gap-1 text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded-md hover:opacity-80"
+          className="flex items-center gap-1 text-xs px-2 py-1 bg-secondary text-secondary-foreground border border-border rounded-md hover:opacity-80"
         >
           <Plus className="w-3 h-3" /> Add Field
         </button>
@@ -149,7 +149,7 @@ export default function CustomFieldsSection({
                 Show on card
               </label>
             </div>
-            <button type="submit" disabled={!label.trim()} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md disabled:opacity-50">
+            <button type="submit" disabled={!label.trim()} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground border border-border rounded-md disabled:opacity-50">
               Add
             </button>
           </div>

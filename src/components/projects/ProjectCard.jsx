@@ -134,7 +134,7 @@ function LinksCorner({ links, onSave }) {
               placeholder="https://..."
               className="flex-1 min-w-0 text-xs px-2 py-1 bg-background border border-input rounded outline-none"
             />
-            <button type="submit" disabled={!url.trim()} className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded disabled:opacity-50 shrink-0">
+            <button type="submit" disabled={!url.trim()} className="text-xs px-2 py-1 bg-primary text-primary-foreground border border-border rounded disabled:opacity-50 shrink-0">
               Add
             </button>
           </div>

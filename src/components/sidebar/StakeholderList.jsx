@@ -24,7 +24,7 @@ function HighlightCheckbox({ category, count, isChecked, onToggle, stakeholderNa
   return (
     <label
       className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border cursor-pointer select-none transition-colors ${
-        isChecked ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-transparent hover:border-border"
+        isChecked ? "bg-primary text-primary-foreground border-primary" : "bg-muted border-border"
       }`}
       title={`Highlight ${category} ${stakeholderName} is on`}
     >
@@ -268,7 +268,7 @@ export default function StakeholderList() {
     <div>
       <button
         onClick={() => setIsAddOpen(true)}
-        className="w-full mb-2 text-xs flex items-center justify-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md"
+        className="w-full mb-2 text-xs flex items-center justify-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground border border-border rounded-md"
       >
         <Plus className="w-3.5 h-3.5" />
         Add Stakeholder
@@ -283,7 +283,7 @@ export default function StakeholderList() {
             autoFocus
             className="flex-1 text-xs px-2 py-1.5 bg-background border border-input rounded outline-none"
           />
-          <button type="submit" disabled={!newDeptName.trim()} className="text-xs px-2 py-1.5 bg-primary text-primary-foreground rounded-md disabled:opacity-50">
+          <button type="submit" disabled={!newDeptName.trim()} className="text-xs px-2 py-1.5 bg-primary text-primary-foreground border border-border rounded-md disabled:opacity-50">
             Add
           </button>
           <button type="button" onClick={() => setIsAddingDept(false)} className="text-xs px-2 py-1.5 text-muted-foreground hover:text-foreground">

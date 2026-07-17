@@ -64,7 +64,7 @@ export default function AddNoteForm({ projectId, allStakeholders = [], defaultTy
         <button
           type="submit"
           disabled={!content.trim()}
-          className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md disabled:opacity-50 shrink-0"
+          className="text-xs px-3 py-1.5 bg-primary text-primary-foreground border border-border rounded-md disabled:opacity-50 shrink-0"
         >
           Add
         </button>

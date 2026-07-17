@@ -54,7 +54,7 @@ export default function AttachmentsAndLinks({ project, onSave }) {
             </div>
           ))}
         </div>
-        <label className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-secondary text-secondary-foreground rounded-md cursor-pointer hover:opacity-80">
+        <label className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-secondary text-secondary-foreground border border-border rounded-md cursor-pointer hover:opacity-80">
           <Upload className="w-3 h-3" />
           {isUploading ? "Uploading..." : "Add file"}
           <input type="file" onChange={handleFileChange} disabled={isUploading} className="hidden" />
@@ -89,7 +89,7 @@ export default function AttachmentsAndLinks({ project, onSave }) {
             placeholder="https://..."
             className="flex-1 text-xs px-2 py-1.5 bg-background border border-input rounded outline-none"
           />
-          <button type="submit" disabled={!linkUrl.trim()} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md disabled:opacity-50 shrink-0">
+          <button type="submit" disabled={!linkUrl.trim()} className="text-xs px-3 py-1.5 bg-primary text-primary-foreground border border-border rounded-md disabled:opacity-50 shrink-0">
             Add
           </button>
         </form>

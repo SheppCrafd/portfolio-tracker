@@ -321,7 +321,7 @@ export default function TaskTable({ project }) {
         <button
           onClick={handleClearDone}
           disabled={doneTasks.length === 0}
-          className="text-xs px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="text-xs px-2.5 py-1 rounded-md bg-secondary text-secondary-foreground border border-border hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Clear Done
         </button>
