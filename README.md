@@ -19,7 +19,7 @@ Each level is rendered as a card, nested inside its parent's card, so the dashbo
 - **Product and Area cards** with their own expandable detail views, stakeholders, and support for user-defined custom fields (global or per-card, optionally surfaced on the card face).
 - **Create New / Filter** — a single entry point to create a Task, Project, Product, or Area, plus filtering by area/product/project.
 - **Right sidebar** — Today's Top 3, this week's focus items grouped by project, and a horizontal bar chart of task status counts per project.
-- **Left sidebar** — stakeholders grouped by department, with per-category (tasks/notes/projects/products) counts that toggle a color-coded highlight (a tint on the matching cards/rows) across the dashboard.
+- **Left sidebar** — stakeholders grouped by department, with per-category (tasks/notes/projects/products) counts that toggle a color-coded highlight (a tint on the matching cards/rows) across the dashboard. Each stakeholder is drag-and-droppable: drop one onto a project/product/task card to assign them, or onto a department to reassign them (department is otherwise not editable from the row).
 - **AI chat assistant** — a floating chat widget (and a full `/chat` page) backed by a streaming LLM function that can create/update tasks, projects, products, and areas, add notes, mark focus items, and answer questions about your data, including archived items. The widget is a real draggable/resizable window (drag the header to move it, drag any edge or corner to resize) and remembers its position and size between sessions.
 - **Archive view** — a date-range view of everything that was active during that window, including archived projects/tasks, which remain fully editable and can be restored.
 
@@ -50,7 +50,7 @@ The client-side list lives in `src/lib/chatCommands.js`; the matching server-sid
 
 ### Architecture
 
-- **Frontend**: React 18 + Vite, React Router, TanStack Query for data fetching/caching, Zustand for lightweight client state, Tailwind CSS + Radix UI primitives (via `shadcn`-style components in `src/components/ui`) for the design system, Framer Motion for animation, and Recharts for the status bar chart.
+- **Frontend**: React 18 + Vite, React Router, TanStack Query for data fetching/caching, Zustand for lightweight client state, Tailwind CSS + Radix UI primitives (via `shadcn`-style components in `src/components/ui`) for the design system. Animation is plain Tailwind (`tailwindcss-animate`'s `animate-in`/`fade-in`/`zoom-in` utilities) plus a handful of custom CSS keyframes in `src/index.css` (the chat "thinking" icon, message fade-in, launch pulse) — no animation library. The status bar chart (`TaskStatistics`) is a hand-rolled stacked-div bar, not a charting library.
 - **Backend**: [Base44](https://base44.com) — a hosted backend providing entity storage/CRUD, auth, and serverless functions. The frontend talks to it through `@base44/sdk`, configured in `src/api/base44Client.js`.
 - **Build tooling**: Vite with the `@base44/vite-plugin` (dev-only HMR notifier, visual-edit agent, and analytics hooks), ESLint, TypeScript in `checkJs` mode for type-checking JS via `jsconfig.json`, and Vitest for unit tests.
 
@@ -83,8 +83,8 @@ Serverless functions handle operations that go beyond simple entity CRUD: `aiCha
 - `components/ai/` — the floating chat widget, session history UI, and the `/` command menu (`ChatCommandMenu`).
 - `components/modals/` — create/edit forms (`AreaForm`, `ProductForm`, `ProjectForm`, `TaskForm`, `CreateModal`, `FilterModal`).
 - `components/archive/` — the archive date-range panel.
-- `components/shared/` — cross-cutting UI (avatars, custom fields, stakeholder/product assignment, query error states).
-- `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`) plus chat (`useChatController`, `useChatMessages`, `useChatSessions`, `useSlashCommand`), the chat widget's window geometry (`useWindowGeometry`), and other UI utility hooks.
+- `components/shared/` — cross-cutting UI: avatars, date fields, custom fields, stakeholder/product assignment, per-column table filtering (`ColumnFilterMenu`), the shared floating-menu shell (`PositionedPopover`) every dropdown/popover in the app is built on, and query error states.
+- `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`) plus chat (`useChatController`, `useChatMessages`, `useChatSessions`, `useSlashCommand`), the chat widget's window geometry (`useWindowGeometry`), drag-and-drop (`useGlobalDragEnd`), and other UI utility hooks (inline editing, date selection, file upload, highlight matching).
 - `lib/` — cross-cutting logic: auth context, filter/highlight context, entity and task utilities, the Base44 app-params/query-client setup.
 
 ## Getting Started

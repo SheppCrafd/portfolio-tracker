@@ -2,6 +2,8 @@
 
 _Rebuilt 2026-07-16 from a from-scratch, skeptical re-audit of `src/` and `base44/` against every individual clause in `Prod_Spec.md` — not against the previous MVP_Status.md, whose "all 12 sections fully match spec" claim turned out to be wrong (the stakeholder highlight/dimming feature was fundamentally broken despite being marked `[x]`). This revision breaks every sentence of the spec into its own checklist line, verified against real code and traced logic, not against whether a similarly-named component exists._
 
+_§0–13 below are that 2026-07-16 spec-compliance audit and are left as a historical record. A round of direct, user-directed UI iteration followed on 2026-07-17 — some of it deliberately deviating from `Prod_Spec.md`'s literal wording — documented in [§14](#14-post-launch-ui-iteration-2026-07-17) rather than rewritten back into the line-by-line checklist below. A few individual lines below that are now factually superseded are struck through and annotated in place; everything else in §0–13 still holds._
+
 Legend: `[x]` matches spec & verified working · `[~]` exists but was broken/incomplete/deviated — now fixed this pass unless noted · `[ ]` not built / open
 
 **Contents**
@@ -21,6 +23,7 @@ Legend: `[x]` matches spec & verified working · `[~]` exists but was broken/inc
 - [12. Archive view](#12-archive-view)
 - [13. Cross-cutting](#13-cross-cutting)
 - [Everything fixed this pass, ranked by impact](#everything-fixed-this-pass-ranked-by-user-visible-impact)
+- [14. Post-launch UI iteration (2026-07-17)](#14-post-launch-ui-iteration-2026-07-17)
 
 ---
 
@@ -242,7 +245,7 @@ File: `src/components/sidebar/FocusFeed.jsx`, `src/components/shared/TaskStatist
 - [x] Blocked color = dark grey — ~~used `bg-muted-foreground`, a theme token that's *lighter* in dark mode, inverting the intended color.~~ **Fixed** — literal `#4B5563`, same in both themes
 - [x] Pending Feedback color = orange
 - [x] On Hold color = red
-- [x] No-status tasks shown as a white bar with a thin black border — ~~used `bg-muted border-border`, ~15% lightness in dark mode, rendering as a barely-visible dark-on-dark bar.~~ **Fixed** — literal `bg-white border-black`, same in both themes
+- [x] ~~No-status tasks shown as a white bar with a thin black border — used `bg-muted border-border`, ~15% lightness in dark mode, rendering as a barely-visible dark-on-dark bar. Fixed to literal `bg-white border-black`, same in both themes.~~ **Superseded 2026-07-17** — changed to solid black per direct request ([§14](#14-post-launch-ui-iteration-2026-07-17)); no longer white/bordered.
 - [x] "All colors are light" — every status swatch is a pastel/light tone, except the deliberately dark-grey Blocked and literal white No-status, both explicitly specified by name in the spec rather than "light"
 - [x] In-progress yellow — ~~`#FDE047` (Tailwind yellow-300) was the same shade-tier as the other accepted pastels, but yellow's inherent luminance read as noticeably more saturated/vivid than its siblings, an ambiguous call against "all colors are light."~~ **Fixed** — bumped to `#FEF08A` (yellow-200), unambiguously matching the pastel weight of the rest of the palette.
 
@@ -267,7 +270,7 @@ File: `src/components/sidebar/StakeholderList.jsx`, `AddStakeholderModal.jsx`
 - [x] Highlighting reaches the task's row wherever it's shown, place 1: the task-table popup opened by clicking the quadrant
 - [x] Highlighting reaches the task's row, place 2: the task table embedded in the project's expand view (same `TaskTable` component)
 - [x] Highlighting reaches the task's row, place 3: the right-sidebar Focus Feed list
-- [x] Project/Product/Area card dimming reacts to the `projects`/`products` categories together, so a container never sits dimmed while a matching child inside it is lit — required fixing the underlying cascade math too: `AreaCard`'s effective stakeholder set was only pulling from its direct products (missing nested projects and orphan/product-less projects entirely); `ProductCard` only looked at its own `stakeholder_ids` (ignoring its child projects). Both now aggregate their full subtree.
+- [x] ~~Project/Product/Area card dimming reacts to the `projects`/`products` categories together, so a container never sits dimmed while a matching child inside it is lit — both `AreaCard` and `ProductCard` aggregate their full subtree's stakeholder ids for this purpose.~~ **Superseded 2026-07-17** — replaced entirely per direct feedback that the cascade "layered like shadows": highlighting no longer dims non-matches at all (it tints the match instead), and no longer cascades upward — checking a stakeholder's "Projects" box now tints only the matching Project card, not its parent Product/Area. See [§14](#14-post-launch-ui-iteration-2026-07-17).
 - [x] "Add Stakeholder" button shown above the list
 - [x] Clicking it lets the user set a name
 - [x] ...a department
@@ -347,7 +350,7 @@ File: `src/components/archive/ArchiveView.jsx`, `base44/functions/archivedProjec
 _Not individual spec sentences, but implied by the spec's overall scope (editing, deleting, and the "any action" chat catalog) — verified once, applying across every entity._
 
 - [x] React Query cache invalidation wired on every mutation
-- [x] Debounced inline-edit pattern used consistently
+- [x] ~~Debounced inline-edit pattern used consistently~~ **Superseded 2026-07-17** — replaced app-wide with save-on-blur-or-Enter (no debounce) per direct feedback that debounced saves felt laggy. See [§14](#14-post-launch-ui-iteration-2026-07-17).
 - [x] `archiveProject` cascades archiving to child tasks
 - [x] `deleteArea` cascades to its Products, Projects, and their Tasks
 - [x] `deleteProduct` cascades to its Projects and their Tasks
@@ -379,3 +382,40 @@ _Not individual spec sentences, but implied by the spec's overall scope (editing
 16. The whole page was silently vertically scrollable with nothing visible below the fold — `html`/`body`/`#root` now locked to the viewport.
 17. Custom chat scroll rail removed per direct feedback (native scrolling instead) — the one deliberate deviation left in this document.
 18. Added a full-page chat at `/chat` (ChatGPT/Claude.ai-style), sharing state with the floating widget via a newly extracted `useChatController` hook.
+
+---
+
+## 14. Post-launch UI iteration (2026-07-17)
+
+A follow-up round of direct, user-directed UI/UX polish on top of the 2026-07-16 spec-compliant baseline above — some of it deliberately overriding `Prod_Spec.md`'s literal wording rather than fixing a bug against it. No `base44/` backend logic changed except where noted (the AI assistant's action catalog, kept in step with new UI capabilities). Grouped by area, not spec section, since most of this pass was UI feel rather than missing spec clauses.
+
+**Cards**
+- Highlighting no longer dims non-matches — it tints the match instead (`bg-primary/10` + ring), and per direct feedback it no longer cascades upward through ancestors: checking a stakeholder's "Projects"/"Products" box tints only the directly-matching card, not its parent Product/Area. `AreaCard` has no highlight state at all now (there's no "Areas" checkbox to match against).
+- Project card: Risks and Open Questions are separate boxes, each tinting only once populated (red / the same pastel orange as "Pending Feedback" in the status legend) instead of one combined always-tinted box. Populated links render as labeled text (not just an icon) in the card's lower-right corner. The quadrant grid is ~1.5x larger, and a quadrant containing a highlighted stakeholder's task now fills with the "Done" pastel green rather than a thin ring.
+- Nearly every field editable in a card's expand modal (due date + status, owner, problem statement, impact/outcome metrics, stakeholders, general notes, related products, custom field values) is now also directly editable on the compact card face for Project/Product/Area cards, not modal-only.
+- Fixed a real bug along the way: several fields (objective, problem statement, etc.) were passing their empty-state placeholder text as the field's literal *value*, so clicking to edit showed real editable text like "No objective set." instead of a greyed hint.
+- Removed the Project "Activity" field entirely (card and modal) — also dropped from the AI assistant's `UPDATE_PROJECT` action args.
+
+**Task table**
+- Every column is independently sortable and filterable (via the shared `ColumnFilterMenu`); default view sorts by Quadrant instead of unsorted.
+- Added a "Clear Done" button (bulk-archives a project's done/delegated-done tasks) — mirrored in the AI assistant as a new `ARCHIVE_DONE_TASKS` action, since the assistant executes one action per message and had no way to replicate a bulk operation otherwise.
+- The new-task row gained Status/Type/Stakeholder/Notes/Weekly-focus inputs so a task can be fully filled in at creation, not just description + quadrant — mirrored in the AI assistant's `CREATE_TASK` action, which previously silently dropped those fields even if the model tried to pass them (the handler explicitly whitelisted args).
+- "Quad." header → "Quadrant", larger cell text.
+- Status legend/stacked-bar order changed twice by direct request: first swapping In Progress ↔ Pending Feedback, then reordered again to read Not Started → Done left-to-right. No-status changed from a white-bar-with-black-border to solid black.
+
+**Stakeholders**
+- The left-sidebar department `<select>` was removed — department reassignment is drag-and-drop only now (drop a stakeholder onto a department section), which already existed alongside the dropdown and is the sole mechanism going forward.
+- Dragging a Project card or a stakeholder row now renders via `@dnd-kit`'s `DragOverlay`, portalled straight to `document.body`. A plain z-index on the dragged element couldn't lift it above ancestor stacking contexts (`ProductCard`/`AreaCard` each own one) or escape the scrollable main pane / sidebar's clipping — only a portal-based overlay actually can.
+
+**AI chat widget**
+- Loading state changed from a generic spinner + "Operating Dashboard..." text to the actual selected chat icon animating (spin up → wind to a stop → repeat) — restricted to the in-message loading bubble only; the header/launcher icon no longer animates.
+- Assistant replies fade in per rendered block/list item (cascading, not all-at-once).
+- Auto-scroll to bottom is unconditional on any new message or the loading bubble appearing (previously gated behind an "already near bottom" check).
+
+**Data entry (app-wide)**
+- Every editable field — text, contenteditable titles, and the date picker — now saves on blur or Enter instead of on a debounce timer, per direct feedback that debounced saves felt laggy.
+
+**Repo hygiene** (see also `README.md`, which was corrected alongside this pass — it had claimed Recharts and Framer Motion power the status chart/animations; neither is actually used anywhere in `src/`)
+- Removed the unused `recharts` and `framer-motion` dependencies and the dead `src/components/ui/chart.jsx` (recharts' only consumer, itself never imported anywhere).
+- Deleted a stray, UTF-16-encoded `tree` command dump (`src-tree.txt`) that had been accidentally committed at the repo root.
+- Consolidated duplicated code with zero behavior change (verified via identical build output before/after): a shared `PositionedPopover` for the "Portal + overlay + positioned panel" markup hand-copied across six different dropdown/popover components; a shared `useFileUpload` hook (two components had their own copy of the same upload/`isUploading` logic); a shared `CardCustomFields` component (Project/Product/AreaCard each repeated the same ~15-line custom-field-display block); and a single source for the task Type enum and the quadrant `<option>` list (previously duplicated across 3–4 files each).
