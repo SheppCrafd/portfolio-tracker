@@ -63,10 +63,9 @@ function StakeholderRow({ stakeholder, isHighlighted, onToggleHighlight, onRemov
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
-    // Lifted above ordinary page content while actively being dragged, but
-    // kept below modals (z-50) and the chat widget/its popovers (z-50 and
-    // up) — those should never be covered by a drag in progress.
-    zIndex: isDragging ? 45 : undefined,
+    // Lifted above literally everything else on the page while actively
+    // being dragged — per direct request, no exceptions.
+    zIndex: isDragging ? 100 : undefined,
     position: "relative",
   };
 
