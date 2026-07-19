@@ -30,11 +30,27 @@ function clampToViewport(geometry) {
   return { ...geometry, x, y, width, height };
 }
 
+// In an embedded context (e.g. the base44 editor's own preview iframe) the
+// frame's layout can still be settling at the exact instant this module's
+// very first render runs, so window.innerWidth/innerHeight can briefly read
+// back as ~0 rather than the frame's real size. Clamping against that isn't
+// "fitting a too-small screen," it's corrupting a perfectly good saved
+// position into a 0x0 box — invisible, but still "open" (so the launcher
+// button is gone with nothing replacing it). Anything smaller than the
+// panel's own resize floor isn't a real viewport, so treat it as unsettled
+// rather than authoritative.
+function hasSaneViewport() {
+  return window.innerWidth >= MIN_WIDTH && window.innerHeight >= MIN_HEIGHT;
+}
+
 function loadGeometry() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && typeof saved.x === "number" && typeof saved.width === "number") {
-      return clampToViewport(saved);
+      // Trust the saved geometry as-is when the viewport looks unsettled —
+      // the resize listener (and the one-time settle check below) will
+      // re-clamp it once the real size is known, instead of clobbering it now.
+      return hasSaneViewport() ? clampToViewport(saved) : saved;
     }
   } catch {
     // fall through to default
@@ -50,6 +66,18 @@ function loadGeometry() {
 export function useWindowGeometry() {
   const [geometry, setGeometry] = useState(loadGeometry);
   const dragRef = useRef(null);
+
+  useEffect(() => {
+    // One-time correction for the unsettled-viewport case loadGeometry()
+    // guards against above: re-clamp once the browser has actually finished
+    // laying out the frame (a frame after mount is enough in practice), so a
+    // load that landed mid-settle still ends up fully on screen rather than
+    // just trusting the raw saved position forever.
+    const id = requestAnimationFrame(() => {
+      if (hasSaneViewport()) setGeometry((current) => clampToViewport(current));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     // Clamped in real time (not just at drag-end) so the panel can never be

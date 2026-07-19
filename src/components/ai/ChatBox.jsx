@@ -30,16 +30,18 @@ export default function ChatBox({ activeProjectId }) {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      // The icon picker and session list render in a Portal (outside this
-      // container's DOM subtree), so skip the outside-click close while
-      // either is open — otherwise clicking them would close the whole
-      // chat panel before their own click handler ever runs.
-      if (chat.iconPicker.isOpen || isSessionListOpen) return;
+      // The icon picker, session list, and slash-command menu all render in
+      // a Portal (outside this container's DOM subtree), so skip the
+      // outside-click close while any is open — otherwise clicking them
+      // would close the whole chat panel before their own click handler
+      // ever runs (the command menu's own items only preventDefault the
+      // mousedown to avoid stealing input focus, so it still bubbles here).
+      if (chat.iconPicker.isOpen || isSessionListOpen || slashCommand.isOpen) return;
       if (containerRef.current && !containerRef.current.contains(e.target)) setIsChatOpen(false);
     };
     window.addEventListener("mousedown", handleClickOutside);
     return () => window.removeEventListener("mousedown", handleClickOutside);
-  }, [chat.iconPicker.isOpen, isSessionListOpen]);
+  }, [chat.iconPicker.isOpen, isSessionListOpen, slashCommand.isOpen]);
 
   const selectSession = (id) => {
     chat.handleSelectSession(id);
