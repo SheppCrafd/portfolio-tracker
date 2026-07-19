@@ -24,7 +24,33 @@ const DESTRUCTIVE_ACTIONS = new Set([
   // once — confirmed first for the same reason the UI's "Clear Done"
   // button is, even though a single ARCHIVE_TASK isn't.
   'ARCHIVE_DONE_TASKS',
+  // Mass deletion — always confirmed first, same as every single DELETE_*
+  // above, just covering however many ids were batched into one request.
+  'BULK_DELETE',
 ]);
+
+// BULK_CREATE/BULK_DELETE route each item/id through the matching single
+// action's case in executeAction (below) rather than duplicating its
+// create/cascade logic, so the two paths can never drift out of sync.
+const BULK_CREATE_ACTION_BY_TYPE = {
+  area: 'CREATE_AREA',
+  product: 'CREATE_PRODUCT',
+  project: 'CREATE_PROJECT',
+  task: 'CREATE_TASK',
+  note: 'CREATE_NOTE',
+  stakeholder: 'CREATE_STAKEHOLDER',
+  department: 'CREATE_DEPARTMENT',
+};
+
+const BULK_DELETE_ACTION_AND_ID_KEY_BY_TYPE = {
+  area: ['DELETE_AREA', 'area_id'],
+  product: ['DELETE_PRODUCT', 'product_id'],
+  project: ['DELETE_PROJECT', 'project_id'],
+  task: ['DELETE_TASK', 'task_id'],
+  note: ['DELETE_NOTE', 'note_id'],
+  stakeholder: ['DELETE_STAKEHOLDER', 'stakeholder_id'],
+  department: ['DELETE_DEPARTMENT', 'department_id'],
+};
 
 const ACTION_CATALOG = `
 [AVAILABLE ACTIONS — use the exact field names shown, they match the real database schema]
@@ -69,6 +95,9 @@ const ACTION_CATALOG = `
 - "DELETE_DEPARTMENT" (args: department_id) — cascades: every stakeholder currently in this department becomes Unassigned (they are NOT deleted themselves)
 
 - "SET_CUSTOM_FIELD" (args: entity_type ["project","product","area"], entity_id, label, value, show_on_card [bool], area_wide [bool, optional]) — adds or updates a custom field's value on that entity. If entity_type is "project" or "product" and area_wide is true, the field is also registered on that entity's parent Area, making it available (empty, fillable) on every other project/product in that same area — matching what the "All projects/products in this area" option does in the UI. Areas have no broader scope to register against, so area_wide is ignored when entity_type is "area".
+
+- "BULK_CREATE" (args: entity_type ["area","product","project","task","note","stakeholder","department"], items [array of arg objects — each one shaped exactly like that entity's CREATE_* action's args above]) — creates many records in one shot, e.g. "add these 5 tasks to Project X: ..." → one BULK_CREATE with entity_type "task" and 5 items, each with project_id set. Use this instead of separate CREATE_* calls whenever the user asks for more than one of the same thing at once. Not destructive, so it runs immediately like any single CREATE_*.
+- "BULK_DELETE" (args: entity_type [same list as BULK_CREATE], ids [array of that entity's ids]) — deletes many records in one shot (same cascades as the matching single DELETE_* action, applied per id). Always confirmed first, exactly like a single delete — never skip confirmation just because it's phrased as "clean up" or "delete all of these."
 
 - "CHAT_ONLY" (args: none — just respond conversationally)
 - "UNKNOWN" (args: none — couldn't map the request to an action)
@@ -370,6 +399,25 @@ async function executeAction(base44, action, args) {
       }
 
       return { toolResult: { entity: updated } };
+    }
+
+    case 'BULK_CREATE': {
+      const { entity_type, items } = args;
+      const createAction = BULK_CREATE_ACTION_BY_TYPE[entity_type];
+      if (!createAction) throw new Error(`Unknown entity_type "${entity_type}" for BULK_CREATE`);
+      if (!Array.isArray(items) || items.length === 0) throw new Error('items must be a non-empty array');
+      const results = await Promise.all(items.map((item) => executeAction(base44, createAction, item)));
+      const created = results.map((r) => Object.values(r.toolResult)[0]);
+      return { toolResult: { entity_type, items: created, count: created.length } };
+    }
+    case 'BULK_DELETE': {
+      const { entity_type, ids } = args;
+      const mapping = BULK_DELETE_ACTION_AND_ID_KEY_BY_TYPE[entity_type];
+      if (!mapping) throw new Error(`Unknown entity_type "${entity_type}" for BULK_DELETE`);
+      if (!Array.isArray(ids) || ids.length === 0) throw new Error('ids must be a non-empty array');
+      const [deleteAction, idKey] = mapping;
+      await Promise.all(ids.map((id) => executeAction(base44, deleteAction, { [idKey]: id })));
+      return { toolResult: { entity_type, count: ids.length } };
     }
 
     default:
