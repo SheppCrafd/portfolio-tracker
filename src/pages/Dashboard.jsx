@@ -96,7 +96,6 @@ export default function Dashboard() {
                 products={productsWithProjects}
                 orphanProjects={orphanProjects}
                 onExpand={() => handleExpand(area)}
-                productCount={areaProducts.length}
                 stakeholderIds={areaStakeholderIds}
               />
             );

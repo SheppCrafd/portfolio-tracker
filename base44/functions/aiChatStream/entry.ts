@@ -52,6 +52,17 @@ const BULK_DELETE_ACTION_AND_ID_KEY_BY_TYPE = {
   department: ['DELETE_DEPARTMENT', 'department_id'],
 };
 
+// A single chat turn can now resolve to a whole ordered plan (e.g. "populate
+// my workspace with test data" → an Area, a couple Products, several
+// Projects, a handful of Tasks each) instead of exactly one action. Capped
+// generously above any realistic manual request so a runaway LLM response
+// can't spawn an unbounded number of records in one turn.
+const MAX_ACTIONS_PER_REQUEST = 60;
+
+// Actions that don't touch the database — never gated behind confirmation
+// and never counted as "did something" for query-invalidation purposes.
+const NON_EXECUTABLE_ACTIONS = new Set(['CHAT_ONLY', 'UNKNOWN', 'UNDO_LAST_ACTION']);
+
 const ACTION_CATALOG = `
 [AVAILABLE ACTIONS — use the exact field names shown, they match the real database schema]
 
@@ -96,7 +107,7 @@ const ACTION_CATALOG = `
 
 - "SET_CUSTOM_FIELD" (args: entity_type ["project","product","area"], entity_id, label, value, show_on_card [bool], area_wide [bool, optional]) — adds or updates a custom field's value on that entity. If entity_type is "project" or "product" and area_wide is true, the field is also registered on that entity's parent Area, making it available (empty, fillable) on every other project/product in that same area — matching what the "All projects/products in this area" option does in the UI. Areas have no broader scope to register against, so area_wide is ignored when entity_type is "area".
 
-- "BULK_CREATE" (args: entity_type ["area","product","project","task","note","stakeholder","department"], items [array of arg objects — each one shaped exactly like that entity's CREATE_* action's args above]) — creates many records in one shot, e.g. "add these 5 tasks to Project X: ..." → one BULK_CREATE with entity_type "task" and 5 items, each with project_id set. Use this instead of separate CREATE_* calls whenever the user asks for more than one of the same thing at once. Not destructive, so it runs immediately like any single CREATE_*.
+- "BULK_CREATE" (args: entity_type ["area","product","project","task","note","stakeholder","department"], items [array of arg objects — each one shaped exactly like that entity's CREATE_* action's args above]) — creates many records of the SAME type in one shot, e.g. "add these 5 tasks to Project X: ..." → one BULK_CREATE with entity_type "task" and 5 items, each with project_id set. Use this for a same-type batch where nothing else needs to reference an individual new item's id afterward (a BULK_CREATE item cannot be given a "temp_id" — see [MULTI-STEP PLANS] below). Not destructive, so it runs immediately like any single CREATE_*.
 - "BULK_DELETE" (args: entity_type [same list as BULK_CREATE], ids [array of that entity's ids]) — deletes many records in one shot (same cascades as the matching single DELETE_* action, applied per id). Always confirmed first, exactly like a single delete — never skip confirmation just because it's phrased as "clean up" or "delete all of these."
 
 - "CHAT_ONLY" (args: none — just respond conversationally)
@@ -126,6 +137,19 @@ The chat composer offers "/" autocomplete for these one-word commands. If [LATES
 If [LATEST USER MESSAGE] starts with a "/" word that is NOT one of the commands above, ignore the slash — do not invent or guess an action for it. Respond with "CHAT_ONLY" (or "UNKNOWN" if there's truly nothing to say).
 `;
 
+const MULTI_STEP_GUIDE = `
+[MULTI-STEP PLANS]
+Your reply's "actions" is a list, not a single action — most requests still resolve to a list of exactly one, but a request that spans multiple records (or multiple *kinds* of record) should become an ordered list of actions that all run together, in the order given.
+
+TEMP IDS: give an action a "temp_id" (any short label you invent, e.g. "area1") when a LATER action in the same list needs to reference the record this one is about to create — its real id doesn't exist yet when you're writing the plan. Reference it from a later action's args_json by using "$" + that label as the value instead of a real id, e.g. a Product's "parent_area_id": "$area1". Only do this for a record THIS SAME PLAN is creating; an id that already exists in [GLOBAL DATABASE STATE] must always be looked up and passed directly, per the CRITICAL MAPPING RULE. A "temp_id" only works on a single CREATE_* action (one record, one resulting id) — BULK_CREATE makes many records at once so none of them can be individually referenced this way; use BULK_CREATE only for a same-type batch that nothing later in the plan needs to point back to individually (e.g. several Tasks under one already-resolved project_id).
+
+EXAMPLE — "set up a sample Area with two Products and a Project each, with a few Tasks" becomes one ordered list: CREATE_AREA (temp_id "area1") → CREATE_PRODUCT ×2 (parent_area_id "$area1", temp_id "product1"/"product2") → CREATE_PROJECT ×2 (parent_area_id "$area1", parent_product_id "$product1" or "$product2", temp_id "project1"/"project2") → BULK_CREATE of type "task" for each project (project_id "$project1" / "$project2").
+
+POPULATING WITH SAMPLE/TEST DATA: when the user asks you to populate, seed, or fill their workspace with sample/test/dummy/placeholder data, build a plan like the example above — invent plausible, clearly-labeled content (e.g. prefix titles with "Sample" or "Test") unless they specify exact content, and keep it to a modest, reasonable size (a couple Areas, a couple Products/Projects each, a handful of Tasks each) unless they ask for a specific larger count. Never exceed ${MAX_ACTIONS_PER_REQUEST} actions in one plan — if a request would need more, do a smaller representative batch and tell the user you scaled it down and why.
+
+MASS DELETION works the same way: list every DELETE_*/BULK_DELETE action the request calls for in one plan. If ANY action in the plan is destructive, the ENTIRE plan is held for a single confirmation before anything runs — never split a mixed plan to sneak the destructive part through unconfirmed.
+`;
+
 function buildPrompt({ activeProjectId, areas, products, projects, archivedProjects, tasks, archivedTasks, stakeholders, departments, notes, conversationHistory, userText }) {
   return `[SYSTEM INSTRUCTIONS]
 You are the admin routing engine for a portfolio-tracking dashboard, acting on behalf of the manager using it. You have full read/write access to every object described below, including archived ones — you can answer questions about archived projects/tasks just as well as active ones.
@@ -139,6 +163,7 @@ ATTACHMENTS: if [LATEST USER MESSAGE] contains a line like "[Attached: filename]
 FIELDS MARKED "full replacement array": when an action arg is documented as a full replacement array (stakeholder_ids, related_product_ids, attachments, links), you must include the COMPLETE desired array, not just the item being added or removed — look up the entity's current value in [GLOBAL DATABASE STATE] first and merge/modify it yourself before sending the action.
 ${ACTION_CATALOG}
 ${SLASH_COMMAND_GUIDE}
+${MULTI_STEP_GUIDE}
 [GLOBAL DATABASE STATE]
 Active Project ID (if the user is chatting from within a specific project): ${activeProjectId || 'None'}
 Areas: ${JSON.stringify(areas.map((a) => ({ id: a.id, title: a.title, description: a.description })))}
@@ -158,8 +183,8 @@ ${conversationHistory || '(none yet)'}
 ${userText}
 
 [EXPECTED JSON OUTPUT]
-"args_json" must be a JSON-encoded STRING (not a nested object) containing that action's args, e.g. "{\\"title\\":\\"Foo\\",\\"description\\":\\"Bar\\"}". Use "{}" (the string) when an action takes no args.
-{ "action": "ACTION_NAME", "args_json": "{...}", "message": "your reply to the user, matching their tone, in markdown" }`;
+Each action's "args_json" must be a JSON-encoded STRING (not a nested object) containing that action's args, e.g. "{\\"title\\":\\"Foo\\",\\"description\\":\\"Bar\\"}". Use "{}" (the string) when an action takes no args. Omit "temp_id" entirely on actions that don't need to be referenced later.
+{ "actions": [ { "action": "ACTION_NAME", "args_json": "{...}", "temp_id": "optional_label" } ], "message": "your reply to the user, matching their tone, in markdown" }`;
 }
 
 async function executeAction(base44, action, args) {
@@ -425,6 +450,45 @@ async function executeAction(base44, action, args) {
   }
 }
 
+// Resolves "$temp_id" placeholders (see [MULTI-STEP PLANS] in the prompt)
+// against ids captured from earlier steps in the same plan. Walks arrays and
+// plain objects recursively so a placeholder can appear anywhere in an
+// action's args (a scalar id field, or buried in an array like
+// stakeholder_ids) — untouched (including any string that isn't a bare
+// "$label" reference) if no matching temp id was captured.
+function resolvePlaceholders(value, tempIdMap) {
+  if (typeof value === 'string') {
+    const match = value.match(/^\$(.+)$/);
+    return match && tempIdMap[match[1]] !== undefined ? tempIdMap[match[1]] : value;
+  }
+  if (Array.isArray(value)) return value.map((v) => resolvePlaceholders(v, tempIdMap));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolvePlaceholders(v, tempIdMap)]));
+  }
+  return value;
+}
+
+// Runs a plan's actions in order (not in parallel — later steps may depend
+// on ids captured from earlier ones via temp_id/$placeholder). Each step's
+// toolResult is expected to carry its created/updated record as the single
+// value of a one-key object (e.g. `{ area }`, `{ product }`) — true for
+// every CREATE_* case above — so its real id can be captured for any later
+// step that referenced this one's temp_id.
+async function executeActionSequence(base44, actions) {
+  const tempIdMap = {};
+  const steps = [];
+  for (const step of actions) {
+    const resolvedArgs = resolvePlaceholders(step.args || {}, tempIdMap);
+    const result = await executeAction(base44, step.action, resolvedArgs);
+    if (step.temp_id) {
+      const created = Object.values(result.toolResult || {})[0];
+      if (created && typeof created === 'object' && created.id) tempIdMap[step.temp_id] = created.id;
+    }
+    steps.push({ action: step.action, toolResult: result.toolResult });
+  }
+  return steps;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -435,11 +499,14 @@ Deno.serve(async (req) => {
     const { confirmedAction } = body;
 
     // Second round-trip: the client already showed a confirm prompt and the
-    // user accepted, so just run the action — no LLM call needed.
+    // user accepted, so just run the plan — no LLM call needed. Accepts
+    // either the current `{ actions: [...] }` shape or the older single
+    // `{ action, args }` shape (still used by the client's own undo
+    // round-trip), normalized to a one-item plan.
     if (confirmedAction) {
-      const { action, args } = confirmedAction;
-      const result = await executeAction(base44, action, args);
-      return Response.json({ reply: confirmedAction.confirmMessage || 'Done.', toolResult: result.toolResult, action });
+      const actions = confirmedAction.actions || [{ action: confirmedAction.action, args: confirmedAction.args }];
+      const results = await executeActionSequence(base44, actions);
+      return Response.json({ reply: confirmedAction.confirmMessage || 'Done.', results, action: results[results.length - 1]?.action });
     }
 
     const { message, conversationHistory, activeProjectId } = body;
@@ -477,18 +544,28 @@ Deno.serve(async (req) => {
 
     const response = await base44.integrations.Core.InvokeLLM({
       prompt,
-      // Every property here is a flat scalar on purpose — an open-ended
-      // nested "object" type for args (no fixed properties) is rejected by
-      // strict structured-output schema validation, so args travels as a
-      // JSON-encoded string instead and gets parsed below.
+      // Every action's properties are flat scalars on purpose — an
+      // open-ended nested "object" type for args (no fixed properties) is
+      // rejected by strict structured-output schema validation, so args
+      // travels as a JSON-encoded string instead and gets parsed below.
       response_json_schema: {
         type: 'object',
         properties: {
-          action: { type: 'string' },
-          args_json: { type: 'string' },
+          actions: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                action: { type: 'string' },
+                args_json: { type: 'string' },
+                temp_id: { type: 'string' },
+              },
+              required: ['action'],
+            },
+          },
           message: { type: 'string' },
         },
-        required: ['action', 'message'],
+        required: ['actions', 'message'],
       },
     });
 
@@ -501,33 +578,38 @@ Deno.serve(async (req) => {
       return Response.json({ reply: "Hit a bump parsing that request. Try again?" });
     }
 
-    const { action, args_json, message: reply } = decision;
-    let args = {};
-    try {
-      args = args_json ? JSON.parse(args_json) : {};
-    } catch {
-      args = {};
-    }
+    const { message: reply } = decision;
+    const rawActions = Array.isArray(decision.actions) ? decision.actions.slice(0, MAX_ACTIONS_PER_REQUEST) : [];
+    const actions = rawActions.map((a) => {
+      let args = {};
+      try {
+        args = a.args_json ? JSON.parse(a.args_json) : {};
+      } catch {
+        args = {};
+      }
+      return { action: a.action, args, temp_id: a.temp_id };
+    });
 
-    if (!action || action === 'CHAT_ONLY' || action === 'UNKNOWN') {
+    if (actions.length === 0 || actions.every((a) => NON_EXECUTABLE_ACTIONS.has(a.action))) {
+      if (actions[0]?.action === 'UNDO_LAST_ACTION') {
+        // The undo target lives in the client's local history (last
+        // mutation it applied), so just tell the client to handle it.
+        return Response.json({ reply, action: 'UNDO_LAST_ACTION' });
+      }
       return Response.json({ reply: reply || "I couldn't map that to an action — could you rephrase?" });
     }
 
-    if (action === 'UNDO_LAST_ACTION') {
-      // The undo target lives in the client's local history (last mutation
-      // it applied), so just tell the client to handle it.
-      return Response.json({ reply, action: 'UNDO_LAST_ACTION' });
-    }
+    const executable = actions.filter((a) => !NON_EXECUTABLE_ACTIONS.has(a.action));
 
-    if (DESTRUCTIVE_ACTIONS.has(action)) {
+    if (executable.some((a) => DESTRUCTIVE_ACTIONS.has(a.action))) {
       return Response.json({
         reply,
-        pending_action: { action, args, confirmMessage: reply },
+        pending_action: { actions: executable, confirmMessage: reply },
       });
     }
 
-    const result = await executeAction(base44, action, args);
-    return Response.json({ reply, toolResult: result.toolResult, action });
+    const results = await executeActionSequence(base44, executable);
+    return Response.json({ reply, results, action: results[results.length - 1]?.action });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

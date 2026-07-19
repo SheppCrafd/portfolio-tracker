@@ -187,8 +187,13 @@ export function useChatController({ activeProjectId } = {}) {
         return;
       }
 
-      if (data.toolResult?.undo) {
-        setActionHistory((prev) => [...prev, data.toolResult.undo]);
+      // A response can now carry a whole plan's worth of steps (mass
+      // populate/delete) instead of just one — collect every step's undo
+      // info, if any, so each stays individually undoable via
+      // UNDO_LAST_ACTION (which only ever pops the single most recent one).
+      const undos = (data.results || []).map((r) => r.toolResult?.undo).filter(Boolean);
+      if (undos.length) {
+        setActionHistory((prev) => [...prev, ...undos]);
       }
 
       await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: data.reply });
