@@ -8,7 +8,6 @@ import { useAllTasks } from "@/hooks/useTasks";
 import { useUpdateProduct } from "@/hooks/useProducts";
 import { useEditableField } from "@/hooks/useEditableField";
 import { useHighlightMatch } from "@/hooks/useHighlightDim";
-import { isTaskDone } from "@/lib/taskUtils";
 import EditableText from "@/components/shared/EditableText";
 import CardCustomFields from "@/components/shared/CardCustomFields";
 import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
@@ -41,8 +40,6 @@ export default function ProductCard({ product }) {
 
   const projectIds = projects.map((p) => p.id);
   const productTasks = allTasks.filter((t) => projectIds.includes(t.project_id));
-  const doneCount = productTasks.filter(isTaskDone).length;
-  const completionPct = productTasks.length ? Math.round((doneCount / productTasks.length) * 100) : 0;
 
   return (
     <div
@@ -101,21 +98,6 @@ export default function ProductCard({ product }) {
       </div>
 
       <TaskStatistics tasks={productTasks} />
-
-      <div className="relative z-[1] mt-5 flex items-center justify-between border-t border-border pt-3 px-1">
-        <div className="flex flex-col">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Progress</span>
-          <span className="text-sm font-bold text-primary">{completionPct}%</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Tasks</span>
-          <span className="text-sm font-semibold text-foreground">{doneCount} <span className="text-muted-foreground font-normal">/ {productTasks.length}</span></span>
-        </div>
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Projects</span>
-          <span className="text-sm font-semibold text-foreground">{projects.length}</span>
-        </div>
-      </div>
 
       <CardCustomFields
         entity={product}

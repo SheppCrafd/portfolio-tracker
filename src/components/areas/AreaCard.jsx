@@ -16,7 +16,7 @@ import TaskStatistics from "@/components/shared/TaskStatistics";
 // no "areas" checkbox category, and per direct feedback a match shouldn't
 // cascade upward through every ancestor of the card that actually matches;
 // only that one card (e.g. the specific Project) should visually react.
-export default function AreaCard({ area, products = [], orphanProjects = [], productCount, onExpand, stakeholderIds = [] }) {
+export default function AreaCard({ area, products = [], orphanProjects = [], onExpand, stakeholderIds = [] }) {
   const updateArea = useUpdateArea();
   const deleteArea = useDeleteArea();
 
@@ -113,23 +113,6 @@ export default function AreaCard({ area, products = [], orphanProjects = [], pro
       </div>
 
       <TaskStatistics tasks={areaTasks} />
-
-      <div className="relative z-[1] mt-auto flex items-center justify-between border-t border-border pt-3 px-1">
-        <div className="flex flex-col">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Products</span>
-          <span className="text-sm font-bold text-primary">{productCount}</span>
-        </div>
-        <div className="flex flex-col items-center">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Direct Projects</span>
-          <span className="text-sm font-semibold text-foreground">{orphanProjects.length}</span>
-        </div>
-        <div className="flex flex-col items-end">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Total Projects</span>
-          <span className="text-sm font-semibold text-foreground">
-            {products.reduce((acc, p) => acc + (p.projects?.length || 0), 0) + orphanProjects.length}
-          </span>
-        </div>
-      </div>
 
       <CardCustomFields
         entity={area}
