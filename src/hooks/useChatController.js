@@ -226,13 +226,18 @@ export function useChatController({ activeProjectId } = {}) {
         .join("\n");
 
       const data = await invokeAssistant({ message: userText, conversationHistory, activeProjectId });
+      // ChatMessage.content is a required field on Base44's side — never
+      // forward a falsy reply from aiChatStream (a stale deploy, a model
+      // hiccup) straight into a create call, or the write gets rejected
+      // with a 422 ("Field required") instead of showing the user anything.
+      const reply = data.reply || "Done.";
       const actions = data.actions || [];
 
       if (actions.length === 0 || actions.every((a) => NON_EXECUTABLE_ACTIONS.has(a.action))) {
         if (actions[0]?.action === "UNDO_LAST_ACTION") {
           await runUndo();
         }
-        await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: data.reply });
+        await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: reply });
         return;
       }
 
@@ -240,8 +245,8 @@ export function useChatController({ activeProjectId } = {}) {
 
       if (executable.some((a) => DESTRUCTIVE_ACTIONS.has(a.action))) {
         await createMessage.mutateAsync({
-          session_id: sessionId, role: "assistant", content: data.reply,
-          pending_action: { actions: executable, confirmMessage: data.reply },
+          session_id: sessionId, role: "assistant", content: reply,
+          pending_action: { actions: executable, confirmMessage: reply },
         });
         return;
       }
@@ -256,7 +261,7 @@ export function useChatController({ activeProjectId } = {}) {
         setActionHistory((prev) => [...prev, ...undos]);
       }
 
-      await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: data.reply });
+      await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: reply });
       invalidateAppQueries();
     } catch (error) {
       await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: `⚠️ Error: ${error.message}` });
