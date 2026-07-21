@@ -84,7 +84,7 @@ function LinksCorner({ links, onSave }) {
       {links.map((l, i) => (
         <a
           key={i}
-          href={l.url}
+          href={sanitizeHttpUrl(l.url) || "#"}
           target="_blank"
           rel="noreferrer"
           title={l.url}
@@ -108,7 +108,7 @@ function LinksCorner({ links, onSave }) {
         <div className="flex flex-col gap-1 mb-1">
           {links.map((l, i) => (
             <div key={i} className="flex items-center justify-between gap-1 text-xs px-1 py-1 hover:bg-secondary rounded-sm">
-              <a href={l.url} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline min-w-0">
+              <a href={sanitizeHttpUrl(l.url) || "#"} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline min-w-0">
                 {l.label}
               </a>
               <button onClick={() => removeLink(i)} aria-label="Remove link" className="shrink-0 text-muted-foreground hover:text-destructive">
