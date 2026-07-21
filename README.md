@@ -6,11 +6,20 @@ A dashboard for managing a portfolio of projects and products across your areas 
 
 This app has core app data (areas, products, projects, tasks, stakeholders, departments, notes) living in the browser's `localStorage` (`src/lib/localDb.js`) instead of a hosted database — including everything the AI chat assistant reads and writes, since it acts on this exact same data (see "Architecture" below for how that works without a server ever storing it). [Base44](https://base44.com) is retained for two things: making the LLM call itself (`aiChatStream`) and gating the whole app behind login (Google/Microsoft/Apple/email, via Base44's hosted auth) — there's no custom login form, just Base44's own hosted sign-in page.
 
+## For Enterprises & Organizations
+
+This project is built around data locality, which matters if your organization evaluates tools on data residency and third-party processor exposure:
+
+- **No backend database for your data.** Every Area, Product, Project, Task, Stakeholder, and Note lives in the browser's local storage on the machine running it. There is nothing to breach, subpoena, or leak from a server, because there is no server holding it.
+- **The one exception — the AI assistant — is disclosed, not hidden.** Asking it to do something sends a snapshot of your current data to an LLM provider (via a Base44 function) for that single exchange, and nothing is written back to a server afterward. This is stated directly in the product (the info icon in both chat surfaces), not buried in a policy document. If your organization can't accept even transient third-party LLM exposure, the rest of the app works fully with chat simply left unused — see the standalone distributables below for a build with no network dependency at all.
+- **Self-hostable, small, and auditable.** The frontend is a static build (`npm run build` → `dist/`) deployable to any static host or internal server — no runtime backend to operate or patch beyond the one optional serverless function powering chat. The codebase is compact and dependency-light enough for a real architecture/security review in an afternoon.
+- **Honest about current scope:** this is a single-user, single-browser tool today — there's no multi-user data sharing, roles, or admin console. It's built for one manager's own dashboard, not (yet) a shared team system of record. Evaluate it as a personal productivity tool, not a multi-seat platform, until that changes.
+
 ## Overview
 
 Portfolio Tracker is built for someone managing many projects and products across multiple areas of responsibility (e.g. "Work", "Home"). It organizes work into a three-level hierarchy and gives you a single dashboard to see status, risks, and priorities at a glance:
 
-- **Areas of Responsibility** — the broadest grouping (e.g. Work, Home).
+- **Areas of Responsibility** — the broadest grouping (e.g. Work, Home). Each one stretches across the full dashboard width and stacks vertically — areas are never placed side by side, so a wide monitor gives an area more room, not more columns.
 - **Products** — sit inside an area, optionally connected to related products.
 - **Projects** — sit inside a product, or directly inside an area if there's no product. Each project owns a set of tasks.
 
@@ -18,7 +27,10 @@ Each level is rendered as a card, nested inside its parent's card, so the dashbo
 
 ### Key features
 
-- **Project cards** are small squares showing just the title, a quadrant breakdown of task counts (Eisenhower-style: important/urgent), and a compact Not Started/In Prog/Done stats bar. If a project has any risks or open questions, the quadrant shifts left to make room for a warning-triangle / question-mark indicator. Everything else — objective, problem statement, metrics, owner, due date, stakeholders, notes, related products, attachments/links, custom fields, the full task table, archive/delete — lives one click away via the Expand button's detail view; nothing is lost, just not always-visible.
+- **Project cards, two views, toggled at the top of the dashboard:**
+  - **Mini Cards** (default) — small squares showing just the title, a quadrant breakdown of task counts (Eisenhower-style: important/urgent), and a compact Not Started/In Prog/Done stats bar. If a project has any risks or open questions, the quadrant shifts left to make room for a warning-triangle / question-mark indicator. Everything else — objective, problem statement, metrics, owner, due date, stakeholders, notes, related products, attachments/links, custom fields, the full task table, archive/delete — lives one click away via the Expand button's detail view; nothing is lost, just not always-visible.
+  - **Full Cards** — the original always-editable card: every field above is directly editable right on the card face (inline Risks/Open Questions boxes, owner, due date, stakeholder assigner, links corner), not just via Expand.
+  - The choice is remembered across sessions (`localStorage`), and both views share the same underlying data — switching back and forth never loses anything.
 - **Task table** per project with status, quadrant + H/Q flags, type, notes, stakeholders, and attachments — every column is independently sortable and filterable, defaulting to a Quadrant sort, plus a "Clear Done" button to bulk-archive completed tasks. Tasks can be flagged as a weekly focus item or one of "today's top 3."
 - **Product and Area cards** with their own expandable detail views, stakeholders, and support for user-defined custom fields (global or per-card, optionally surfaced on the card face).
 - **Create New / Filter** — a single entry point to create a Task, Project, Product, or Area, plus filtering by area/product/project.
@@ -91,7 +103,7 @@ Base44 entities (`base44/entities`) — none of your project data: `User` (login
 
 - `pages/` — top-level routes: `Dashboard`, `ChatPage`, `SettingsPage`. No custom login/register pages — sign-in goes through Base44's own hosted login, wired up in `AuthContext.jsx`/`App.jsx`.
 - `components/layout/` — app shell (owns collapsible sidebar state), header (hamburger toggles + `UserMenu`, now just a Settings shortcut), and left/right sidebars.
-- `components/areas/`, `components/products/`, `components/projects/` — the card + detail-modal pairs for each entity level, plus `ProductConnectionLines` (the cross-card connector curves, rendered once at the dashboard level).
+- `components/areas/`, `components/products/`, `components/projects/` — the card + detail-modal pairs for each entity level (`ProjectCard.jsx` is the Mini Cards default, `ProjectCardFull.jsx` the Full Cards alternative — see `CardViewContext.jsx`), plus `ProductConnectionLines` (the cross-card connector curves, rendered once at the dashboard level).
 - `components/sidebar/` — stakeholder list, focus feed, status chart.
 - `components/ai/` — the floating chat widget, session history UI, and the `/` command menu (`ChatCommandMenu`).
 - `components/modals/` — create/edit forms (`AreaForm`, `ProductForm`, `ProjectForm`, `TaskForm`, `CreateModal`, `FilterModal`).
@@ -99,7 +111,7 @@ Base44 entities (`base44/entities`) — none of your project data: `User` (login
 - `components/settings/` — the Settings page's sections: `AppearanceSection` (theme + accent picker) and `AccountSection` (sign out, delete account via `DeleteAccountDialog`).
 - `components/shared/` — cross-cutting UI: avatars, date fields, custom fields, stakeholder/product assignment, per-column table filtering (`ColumnFilterMenu`), the shared floating-menu shell (`PositionedPopover`) every dropdown/popover in the app is built on, and query error states.
 - `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`), all backed by `src/lib/localDb.js` and each also exporting the plain mutation functions `chatActions.js` reuses, plus chat (`useChatController` — gathers the local-data snapshot and runs the assistant's plan via `chatActions.js`; `useChatMessages`, `useChatSessions`, `useSlashCommand`, still Base44-backed for conversation history only), the chat widget's window geometry (`useWindowGeometry`), drag-and-drop (`useGlobalDragEnd`), accent theme persistence (`useAccentTheme`), and other UI utility hooks (inline editing, date selection, file upload, highlight matching). `useFileUpload` stores files as data URLs locally; it's unrelated to the chat widget's own (still Base44) attachment upload.
-- `lib/` — cross-cutting logic: `localDb.js` (the local data layer), `chatActions.js` (the chat assistant's client-side action executor), filter/highlight context, entity and task utilities, the Base44 app-params/query-client setup (kept for the chat client).
+- `lib/` — cross-cutting logic: `localDb.js` (the local data layer), `chatActions.js` (the chat assistant's client-side action executor), `CardViewContext.jsx` (the Mini/Full card preference, shared by Dashboard/AreaCard/ProductCard), filter/highlight context, entity and task utilities, the Base44 app-params/query-client setup (kept for the chat client).
 
 ## Getting Started
 

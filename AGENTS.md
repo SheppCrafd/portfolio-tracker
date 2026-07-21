@@ -20,6 +20,7 @@ Start with `README.md` for local setup and architecture details.
 - `base44/functions/aiChatStream/`: decides the action plan only, never executes it. Requires an authenticated session (rejects with 401 otherwise) since it's reachable by URL and would otherwise let anyone burn LLM calls.
 - `base44/functions/deactivateAccount/`: restored account-deletion function, callable only by the authenticated user on their own account.
 - `src/lib/AuthContext.jsx` + the `AuthenticatedApp` wrapper in `src/App.jsx`: gates the whole app behind base44's own hosted login (Google/Microsoft/Apple/email) — same pattern as Zmanim Today. Restored from pre-fork history at the user's explicit request; don't remove without being asked, same as you wouldn't have added it without being asked.
+- `src/lib/CardViewContext.jsx`: the "mini" vs "full" project-card preference, toggled at the top of the Dashboard and shared by `AreaCard`/`ProductCard` (which switch both which `ProjectCard*` component renders and their container's layout class). `ProjectCard.jsx` (mini, default) and `ProjectCardFull.jsx` (the original always-editable card, restored from pre-mini-cards history) are both real, maintained components — don't treat one as dead code.
 - `vite.config.js`: Vite config and Base44 Vite plugin setup — kept because `aiChatStream` still needs the Base44 toolchain.
 
 ## Working Notes

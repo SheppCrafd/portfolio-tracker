@@ -38,13 +38,16 @@ WHY THIS EXISTS ALONGSIDE standalone/*.bat and *.sh
   info" → "Run anyway"). There's no way to avoid that without paying for a
   code-signing certificate.
 
-YOUR DATA / THE AI CHAT WIDGET
+YOUR DATA / SIGNING IN / THE AI CHAT WIDGET
 
   Same as the script launchers — see the root standalone/README.txt for
   the full explanation. Short version: all your data stays in that
-  browser's local storage on your machine, and the AI chat widget is
-  present but can't respond (it needs a live Base44 account/session that
-  this offline copy doesn't have).
+  browser's local storage on your machine, this copy has no Base44 app id
+  baked in so it never asks you to sign in (the live hosted version does),
+  and the AI chat widget is present but can't respond (it needs a live
+  Base44 account/session that this offline copy doesn't have — when it does
+  work, it acts on your real local data directly, and your data only ever
+  touches an AI service in transit for that one exchange, never stored).
 
 REBUILDING (for developers)
 

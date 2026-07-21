@@ -38,13 +38,24 @@ YOUR DATA
   Nothing is uploaded anywhere. Using a different browser, or clearing this
   browser's site data, starts you with an empty workspace.
 
+SIGNING IN
+
+  The live hosted version of this app requires signing in (Base44's own
+  Google/Microsoft/Apple/email login). This standalone copy does not — it
+  has no Base44 app id baked in, so the login check has nothing to check
+  against and the app just opens straight to the dashboard.
+
 THE AI CHAT WIDGET
 
   The chat bubble is present in the UI, but it won't be able to respond in
   this standalone copy — it's backed by a Base44 serverless function that
   needs an authenticated Base44 account and Base44's own hosting to run,
   neither of which this offline copy has. Everything else in the app works
-  normally without it.
+  normally without it. (When it does work, on the live hosted version, it
+  acts on your real local data directly — the same areas/products/projects/
+  tasks/etc. you see on the dashboard, not a separate copy somewhere else.
+  Your data is sent to an AI service only for the single exchange it takes
+  to answer you; nothing about your data is ever stored on a server.)
 
   If you have (or set up) your own Base44 account and want the AI chat
   working too, you'd need the full source project instead of this file:
