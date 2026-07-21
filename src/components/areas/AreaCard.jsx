@@ -48,8 +48,8 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
   const areaTasks = allTasks.filter((t) => areaProjectIds.includes(t.project_id));
 
   return (
-    <article className="relative z-10 bg-card border border-border rounded-xl shadow-sm p-5 break-inside-avoid flex flex-col gap-4">
-      
+    <article className="relative z-10 bg-card border border-border rounded-xl shadow-sm p-5 break-inside-avoid inline-flex flex-col gap-4 w-fit max-w-full min-w-[340px]">
+
       <div className="relative">
         <div className="absolute top-0 right-0 flex items-center gap-1 z-20">
           <button
