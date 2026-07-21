@@ -159,12 +159,12 @@ export function useChatController({ activeProjectId } = {}) {
     const archivedTasks = allTasks.filter((t) => t.archived_at && !t.deleted_at);
 
     try {
-      // Base44's SDK response interceptor already unwraps a successful
-      // response to its body directly (`res` here IS `{reply, actions}`,
-      // not an axios-style `{data: ...}` wrapper) — our function never
-      // returns an `error` field on a 200 anyway, since every error path
-      // uses a non-2xx status instead.
-      return await base44.functions.invoke("aiChatStream", {
+      // base44.functions.invoke() runs on its own axios client, created with
+      // interceptResponses: false (see @base44/sdk/dist/client.js) — unlike
+      // every other SDK module, function calls never get unwrapped to their
+      // body or transformed into a Base44Error. `response` here is the full
+      // axios envelope, so the actual `{reply, actions}` is response.data.
+      const response = await base44.functions.invoke("aiChatStream", {
         ...payload,
         areas: areas.filter((a) => !a.deleted_at),
         products: products.filter((p) => !p.deleted_at),
@@ -176,19 +176,13 @@ export function useChatController({ activeProjectId } = {}) {
         departments: departments.filter((d) => !d.deleted_at),
         notes,
       });
+      return response.data;
     } catch (error) {
-      // On any non-2xx response, Base44's SDK response interceptor rejects
-      // with a Base44Error (see @base44/sdk/dist/utils/axios-client.js) —
-      // it never gets to our own error handling. That interceptor builds
-      // its own `.message` from response.data.message / .detail, but our
-      // function returns `Response.json({ error: error.message }, { status
-      // : 500 })` — the field is `error`, not `message`/`detail` — so its
-      // message-extraction misses it and falls back to axios's generic
-      // "Request failed with status code 500", identical for every failure
-      // regardless of cause. The real text survives anyway, just under a
-      // different key: Base44Error.data is the raw response body, so
-      // error.data.error is our actual message. Surface that instead.
-      const serverMessage = error.data?.error || error.originalError?.response?.data?.error;
+      // Same reason as above: this rejects as a plain AxiosError (no
+      // interceptor to transform it into a Base44Error), so the body our
+      // function actually returned on a non-2xx response — `{ error:
+      // error.message }` — lives at error.response.data, not error.data.
+      const serverMessage = error.response?.data?.error;
       throw new Error(serverMessage || error.message);
     }
   };
