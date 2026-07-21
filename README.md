@@ -1,10 +1,10 @@
-# Portfolio Tracker (semi-self-owned)
+# Portfolio Tracker
 
-Repo: https://github.com/SheppCrafd/portfolio-tracker-semiselfowned
+Repo: https://github.com/SheppCrafd/portfolio-tracker
 
 A dashboard for managing a portfolio of projects and products across your areas of responsibility — with task tracking, stakeholder visibility, a focus feed, and an AI chat assistant that can act on your data.
 
-This is a fork of the original [Base44](https://base44.com)-backed Portfolio Tracker with everything but the AI assistant moved off Base44: there's no login/account system, and all core app data (areas, products, projects, tasks, stakeholders, departments, notes) lives in the browser's `localStorage` (`src/lib/localDb.js`) instead of a hosted database. Base44 is retained only to run the AI chat assistant's backend function and its own chat history storage — see "Architecture" below for how that split works, including an important caveat about the AI assistant's data.
+This app has core app data (areas, products, projects, tasks, stakeholders, departments, notes) living in the browser's `localStorage` (`src/lib/localDb.js`) instead of a hosted database — [Base44](https://base44.com) is retained for two things: running the AI chat assistant's backend function (with its own hosted dataset, separate from local data — see "Architecture" below for the caveat that implies) and gating the whole app behind login (Google/Microsoft/Apple/email, via Base44's hosted auth) — there's no custom login form, just Base44's own hosted sign-in page.
 
 ## Overview
 
@@ -18,7 +18,7 @@ Each level is rendered as a card, nested inside its parent's card, so the dashbo
 
 ### Key features
 
-- **Project cards** show a quadrant breakdown of task counts (Eisenhower-style: important/urgent), owner and due date (color-coded by commitment status), and separate Risks and Open Questions boxes that only tint (red / pending-feedback orange) once populated — plus nearly everything from the expandable detail view is also directly editable on the card face itself (objective, problem statement, metrics, stakeholders, notes, related products, attachments, and populated links in the lower-right corner). The detail view remains for archive/delete, the full task table, and custom-field creation.
+- **Project cards** are small squares showing just the title, a quadrant breakdown of task counts (Eisenhower-style: important/urgent), and a compact Not Started/In Prog/Done stats bar. If a project has any risks or open questions, the quadrant shifts left to make room for a warning-triangle / question-mark indicator. Everything else — objective, problem statement, metrics, owner, due date, stakeholders, notes, related products, attachments/links, custom fields, the full task table, archive/delete — lives one click away via the Expand button's detail view; nothing is lost, just not always-visible.
 - **Task table** per project with status, quadrant + H/Q flags, type, notes, stakeholders, and attachments — every column is independently sortable and filterable, defaulting to a Quadrant sort, plus a "Clear Done" button to bulk-archive completed tasks. Tasks can be flagged as a weekly focus item or one of "today's top 3."
 - **Product and Area cards** with their own expandable detail views, stakeholders, and support for user-defined custom fields (global or per-card, optionally surfaced on the card face).
 - **Create New / Filter** — a single entry point to create a Task, Project, Product, or Area, plus filtering by area/product/project.
@@ -27,8 +27,8 @@ Each level is rendered as a card, nested inside its parent's card, so the dashbo
 - **AI chat assistant** — a floating chat widget (and a full `/chat` page) backed by a streaming LLM function that can create/update tasks, projects, products, and areas, add notes, mark focus items, and answer questions about your data, including archived items. The widget is a real draggable/resizable window (drag the header to move it, drag any edge or corner to resize) and remembers its position and size between sessions.
 - **Archive view** — a date-range view of everything that was active during that window, including archived projects/tasks, which remain fully editable and can be restored.
 - **Product connection lines** — when a project is linked to a product beyond its primary parent (via the "Connect Products" control), a dashed curve is drawn between the two cards, layered so it crosses over Area/Product/Project cards but stays underneath every other UI element (popovers, modals, the chat widget, the archive button).
-- **Collapsible sidebars, dark mode, and accent themes** — both side panels collapse via hamburger toggles in the header (state persists across sessions), and a settings shortcut (top right) links to a **Settings** page for switching Light/Dark/System theme and picking one of four curated accent colors (Slate/Indigo/Emerald/Amber). There's no account system, so nothing else lives there.
-- **Own branding** — tab title, favicon, and web app manifest (`public/`) are this fork's own, not Base44's default.
+- **Collapsible sidebars, dark mode, and accent themes** — both side panels collapse via hamburger toggles in the header (state persists across sessions), and a settings shortcut (top right) links to a **Settings** page for switching Light/Dark/System theme, picking one of four curated accent colors (Slate/Indigo/Emerald/Amber), and basic account management (sign out, delete account).
+- **Own branding** — tab title, favicon, and web app manifest (`public/`) are custom, not Base44's default.
 
 ### In-chat commands
 
@@ -83,18 +83,18 @@ Base44 entities (`base44/entities`), used only by the chat feature: `ChatSession
 
 ### Backend functions (`base44/functions`)
 
-Only one remains: `aiChatStream` — streams LLM responses and executes the actions it decides on (against Base44's own entities, see the caveat above). It no longer requires an authenticated Base44 session (the auth gate was removed along with the rest of Base44 auth). Every other function that used to live here (`archiveProject`, `restoreProject`, `archivedProjects`, `deleteArea`, `deleteProduct`, `deleteProject`, `deleteDepartment`, `renameDepartment`, `toggleTopThree`, `deactivateAccount`) has been ported into the local data hooks in `src/hooks/` instead.
+`aiChatStream` — streams LLM responses and executes the actions it decides on (against Base44's own entities, see the caveat above). Requires an authenticated Base44 session (rejects with 401 otherwise). Every entity-cascade function that used to live here (`archiveProject`, `restoreProject`, `archivedProjects`, `deleteArea`, `deleteProduct`, `deleteProject`, `deleteDepartment`, `renameDepartment`, `toggleTopThree`) has been ported into the local data hooks in `src/hooks/` instead. `deactivateAccount` is still here — it's account deletion, tied to the (restored) Base44 login.
 
 ### Frontend structure (`src/`)
 
-- `pages/` — top-level routes: `Dashboard`, `ChatPage`, `SettingsPage`. No auth pages — there's no login.
+- `pages/` — top-level routes: `Dashboard`, `ChatPage`, `SettingsPage`. No custom login/register pages — sign-in goes through Base44's own hosted login, wired up in `AuthContext.jsx`/`App.jsx`.
 - `components/layout/` — app shell (owns collapsible sidebar state), header (hamburger toggles + `UserMenu`, now just a Settings shortcut), and left/right sidebars.
 - `components/areas/`, `components/products/`, `components/projects/` — the card + detail-modal pairs for each entity level, plus `ProductConnectionLines` (the cross-card connector curves, rendered once at the dashboard level).
 - `components/sidebar/` — stakeholder list, focus feed, status chart.
 - `components/ai/` — the floating chat widget, session history UI, and the `/` command menu (`ChatCommandMenu`).
 - `components/modals/` — create/edit forms (`AreaForm`, `ProductForm`, `ProjectForm`, `TaskForm`, `CreateModal`, `FilterModal`).
 - `components/archive/` — the archive date-range panel.
-- `components/settings/` — the Settings page's sections: `AppearanceSection` (theme + accent picker) is the only one left; the old account section was removed with auth.
+- `components/settings/` — the Settings page's sections: `AppearanceSection` (theme + accent picker) and `AccountSection` (sign out, delete account via `DeleteAccountDialog`).
 - `components/shared/` — cross-cutting UI: avatars, date fields, custom fields, stakeholder/product assignment, per-column table filtering (`ColumnFilterMenu`), the shared floating-menu shell (`PositionedPopover`) every dropdown/popover in the app is built on, and query error states.
 - `hooks/` — data hooks per entity (`useProjects`, `useTasks`, `useProducts`, `useAreas`, `useStakeholders`, `useDepartments`, `useProjectNotes`), all backed by `src/lib/localDb.js`, plus chat (`useChatController`, `useChatMessages`, `useChatSessions`, `useSlashCommand`, still Base44-backed), the chat widget's window geometry (`useWindowGeometry`), drag-and-drop (`useGlobalDragEnd`), accent theme persistence (`useAccentTheme`), and other UI utility hooks (inline editing, date selection, file upload, highlight matching). `useFileUpload` stores files as data URLs locally; it's unrelated to the chat widget's own (still Base44) attachment upload.
 - `lib/` — cross-cutting logic: `localDb.js` (the local data layer), filter/highlight context, entity and task utilities, the Base44 app-params/query-client setup (kept for the chat client).
@@ -106,7 +106,7 @@ Only one remains: `aiChatStream` — streams LLM responses and executes the acti
 1. Clone the repository.
 2. Install dependencies: `npm install`.
 
-No login is required and no account setup is needed — the app works immediately against local browser data.
+`npm run dev` has no real Base44 app id configured locally, so the login check quietly fails open (a 404 instead of the real backend's `auth_required` 403) and the app renders without asking you to sign in. A properly deployed/published instance will actually require login.
 
 ### Run locally (everything except AI chat)
 
