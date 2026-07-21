@@ -493,6 +493,19 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
+    // Reject anonymous requests before any parsing or execution. Without
+    // this, anyone who knew the function URL could submit a confirmedAction
+    // (DELETE_*, BULK_DELETE, etc.) or read the full app context unauthenticated.
+    let user = null;
+    try {
+      user = await base44.auth.me();
+    } catch {
+      user = null;
+    }
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { confirmedAction } = body;
 
