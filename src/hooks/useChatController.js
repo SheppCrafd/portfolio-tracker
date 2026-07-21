@@ -270,7 +270,12 @@ export function useChatController({ activeProjectId } = {}) {
     setIsComputing(true);
     try {
       await executeActionSequence(message.pending_action.actions);
-      await updateMessage.mutateAsync({ id: message.id, data: { session_id: message.session_id, pending_action: null } });
+      // ChatMessage's `content`/`role` are required fields, and Base44
+      // validates an update against the entity's full required-field list,
+      // not just the keys being changed — a payload that only clears
+      // `pending_action` gets rejected with "Field required". Carry the
+      // message's existing values through so nothing's missing.
+      await updateMessage.mutateAsync({ id: message.id, data: { session_id: message.session_id, role: message.role, content: message.content, pending_action: null } });
       await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: message.pending_action.confirmMessage || "Done." });
       invalidateAppQueries();
     } catch (error) {
@@ -284,7 +289,7 @@ export function useChatController({ activeProjectId } = {}) {
   const handleCancel = async (message) => {
     setResolvingId(message.id);
     try {
-      await updateMessage.mutateAsync({ id: message.id, data: { session_id: message.session_id, pending_action: null } });
+      await updateMessage.mutateAsync({ id: message.id, data: { session_id: message.session_id, role: message.role, content: message.content, pending_action: null } });
       await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: "Okay, cancelled." });
     } finally {
       setResolvingId(null);
