@@ -2,9 +2,9 @@
 
 ## Project Context
 
-This is a fork of a Base44 app with everything except the AI assistant moved off Base44. Core app data (areas, products, projects, tasks, stakeholders, departments, notes) lives in browser `localStorage` via `src/lib/localDb.js` — no hosted database. Base44 is retained to run the AI chat assistant's backend function (`base44/functions/aiChatStream`), store chat history (`ChatSession`/`ChatMessage`), and — as of the whole-app login restore below — gate access to the app itself.
+This is a fork of a Base44 app with everything except the AI assistant's *brain* moved off Base44. Core app data (areas, products, projects, tasks, stakeholders, departments, notes) lives in browser `localStorage` via `src/lib/localDb.js` — no hosted database, and as of the chat rewrite below, the AI assistant reads and writes this exact same data too. Base44 is retained only to run the LLM call itself (`base44/functions/aiChatStream`), store chat history (`ChatSession`/`ChatMessage`), and gate access to the app (login).
 
-Important: `aiChatStream` acts on Base44's own hosted entities, not the local `localDb` data — the AI assistant and the rest of the app currently read/write two disconnected datasets. This was a deliberate scope decision, not a bug; don't "fix" it without being asked to.
+Important: `aiChatStream` never touches your project data. It used to execute actions directly against Base44's own hosted entities — a separate, disconnected dataset from what the Dashboard showed, which meant chat could never visibly affect anything you saw. That's been rewired: the client now sends its current local dataset along with each message (so the LLM can see it), the function decides a plan and returns it *unexecuted*, and `src/lib/chatActions.js` runs it client-side against `localDb` — the same cascade logic the UI's own mutation hooks use (imported directly, not duplicated). Your data touches Base44 only in transit, for that one request; nothing is persisted there. A privacy notice (the `Info` icon) in both chat surfaces says exactly this.
 
 Treat this as user-owned application code, keep changes focused on the user's request, and preserve existing project conventions.
 
@@ -12,10 +12,12 @@ Start with `README.md` for local setup and architecture details.
 
 ## Key Files
 
-- `src/lib/localDb.js`: the local data layer for all non-chat app data.
-- `src/hooks/`: entity hooks (`useAreas`, `useProducts`, `useProjects`, `useTasks`, `useStakeholders`, `useDepartments`, `useProjectNotes`) — all `localDb`-backed, including the cascade/business logic that used to live in Base44 functions.
+- `src/lib/localDb.js`: the local data layer for all app data, now including what the chat assistant reads/writes.
+- `src/hooks/`: entity hooks (`useAreas`, `useProducts`, `useProjects`, `useTasks`, `useStakeholders`, `useDepartments`, `useProjectNotes`) — each exports both a React Query mutation hook (for the UI) and the plain async function it wraps (for `chatActions.js` to reuse directly). Keep it that way — don't let the chat executor drift into its own copy of cascade logic.
+- `src/lib/chatActions.js`: the chat assistant's action executor — mirrors `aiChatStream`'s action catalog 1:1, but runs against `localDb` via the hook files' plain functions above. This is what actually creates/updates/deletes things when you chat.
+- `src/hooks/useChatController.js`: gathers the local dataset snapshot sent to `aiChatStream`, and calls `chatActions.js` to execute (or hold for confirm, or undo) whatever plan comes back.
 - `src/api/base44Client.js`: frontend Base44 SDK client, used only for chat (`useChatController`, `useChatSessions`, `useChatMessages`) and its file attachments.
-- `base44/functions/aiChatStream/`: base44 itself auto-added an auth check here (rejects unauthenticated requests with 401) after we restored the entity schemas it depends on — see the git history around that date for why.
+- `base44/functions/aiChatStream/`: decides the action plan only, never executes it. Requires an authenticated session (rejects with 401 otherwise) since it's reachable by URL and would otherwise let anyone burn LLM calls.
 - `base44/functions/deactivateAccount/`: restored account-deletion function, callable only by the authenticated user on their own account.
 - `src/lib/AuthContext.jsx` + the `AuthenticatedApp` wrapper in `src/App.jsx`: gates the whole app behind base44's own hosted login (Google/Microsoft/Apple/email) — same pattern as Zmanim Today. Restored from pre-fork history at the user's explicit request; don't remove without being asked, same as you wouldn't have added it without being asked.
 - `vite.config.js`: Vite config and Base44 Vite plugin setup — kept because `aiChatStream` still needs the Base44 toolchain.

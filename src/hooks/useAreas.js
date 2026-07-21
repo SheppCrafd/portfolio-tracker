@@ -9,19 +9,55 @@ export function useAreas() {
       const areas = await localDb.areas.list();
       return excludeSoftDeleted(areas);
     },
-    // Local-only data: the only writer is this app's own mutation hooks,
-    // which always invalidateQueries(["areas"]) on success. Nothing else can
-    // change this data out from under us, so there's nothing to gain from
-    // React Query re-running the query on every mount/refocus — that would
-    // just be a wasted extra localDb read.
+    // Local-only data: the only writers are this app's own mutation hooks
+    // and the chat assistant (both call the same plain functions below and
+    // invalidateQueries(["areas"]) on success). Nothing else can change this
+    // data out from under us, so there's nothing to gain from React Query
+    // re-running the query on every mount/refocus — that would just be a
+    // wasted extra localDb read.
     staleTime: Infinity,
   });
+}
+
+export const createArea = (data) => localDb.areas.create(data);
+
+export const updateArea = ({ id, data }) => localDb.areas.update(id, data);
+
+// Soft delete: tags the area deleted_at, and cascades deleted_at to every
+// child Product, every Project under this area, and every Task under those
+// projects. Exported as a plain function (not just wrapped in the hook
+// below) so the chat assistant's action executor can call the exact same
+// cascade logic the UI does — one implementation, not a second copy that
+// could drift.
+export async function deleteArea(id) {
+  const now = new Date().toISOString();
+  const area = await localDb.areas.update(id, { deleted_at: now });
+
+  const products = await localDb.products.filter({ parent_area_id: id });
+  await localDb.products.updateMany(
+    products.filter((p) => !p.deleted_at).map((p) => p.id),
+    { deleted_at: now }
+  );
+
+  const projects = await localDb.projects.filter({ parent_area_id: id });
+  await localDb.projects.updateMany(
+    projects.filter((p) => !p.deleted_at).map((p) => p.id),
+    { deleted_at: now }
+  );
+
+  const tasksByProject = await Promise.all(projects.map((p) => localDb.tasks.filter({ project_id: p.id })));
+  await localDb.tasks.updateMany(
+    tasksByProject.flat().filter((t) => !t.deleted_at).map((t) => t.id),
+    { deleted_at: now }
+  );
+
+  return area;
 }
 
 export function useUpdateArea() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => localDb.areas.update(id, data),
+    mutationFn: updateArea,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["areas"] }),
   });
 }
@@ -29,41 +65,15 @@ export function useUpdateArea() {
 export function useCreateArea() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.areas.create(data),
+    mutationFn: createArea,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["areas"] }),
   });
 }
 
-// Soft delete: tags the area deleted_at, and cascades deleted_at to every
-// child Product, every Project under this area, and every Task under those
-// projects.
 export function useDeleteArea() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
-      const now = new Date().toISOString();
-      const area = await localDb.areas.update(id, { deleted_at: now });
-
-      const products = await localDb.products.filter({ parent_area_id: id });
-      await localDb.products.updateMany(
-        products.filter((p) => !p.deleted_at).map((p) => p.id),
-        { deleted_at: now }
-      );
-
-      const projects = await localDb.projects.filter({ parent_area_id: id });
-      await localDb.projects.updateMany(
-        projects.filter((p) => !p.deleted_at).map((p) => p.id),
-        { deleted_at: now }
-      );
-
-      const tasksByProject = await Promise.all(projects.map((p) => localDb.tasks.filter({ project_id: p.id })));
-      await localDb.tasks.updateMany(
-        tasksByProject.flat().filter((t) => !t.deleted_at).map((t) => t.id),
-        { deleted_at: now }
-      );
-
-      return area;
-    },
+    mutationFn: deleteArea,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["areas"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });

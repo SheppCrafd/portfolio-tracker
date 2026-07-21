@@ -14,34 +14,55 @@ export function useDepartments() {
   });
 }
 
+export const createDepartment = (data) => localDb.departments.create(data);
+
+// Cascades the rename to every Stakeholder currently assigned to this
+// department. Stakeholder.department is a plain string, not a foreign key,
+// so the cascade is a string-match update across matching records. Exported
+// as a plain function so the chat assistant's action executor shares this
+// exact cascade logic with the UI's own mutation hook.
+export async function renameDepartment({ id, name }) {
+  const department = await localDb.departments.get(id);
+  if (!department) throw new Error("Department not found");
+  const oldName = department.name;
+  const updated = await localDb.departments.update(id, { name });
+  if (oldName !== name) {
+    const stakeholders = await localDb.stakeholders.filter({ department: oldName });
+    await localDb.stakeholders.updateMany(
+      stakeholders.filter((s) => !s.deleted_at).map((s) => s.id),
+      { department: name }
+    );
+  }
+  return updated;
+}
+
+// Cascades to every Stakeholder currently assigned to this department,
+// clearing their department field (they become "Unassigned").
+export async function deleteDepartment(id) {
+  const department = await localDb.departments.get(id);
+  if (!department) throw new Error("Department not found");
+  const now = new Date().toISOString();
+  const updated = await localDb.departments.update(id, { deleted_at: now });
+  const stakeholders = await localDb.stakeholders.filter({ department: department.name });
+  await localDb.stakeholders.updateMany(
+    stakeholders.filter((s) => !s.deleted_at).map((s) => s.id),
+    { department: "" }
+  );
+  return updated;
+}
+
 export function useCreateDepartment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.departments.create(data),
+    mutationFn: createDepartment,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["departments"] }),
   });
 }
 
-// Cascades the rename to every Stakeholder currently assigned to this
-// department. Stakeholder.department is a plain string, not a foreign key,
-// so the cascade is a string-match update across matching records.
 export function useRenameDepartment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, name }) => {
-      const department = await localDb.departments.get(id);
-      if (!department) throw new Error("Department not found");
-      const oldName = department.name;
-      const updated = await localDb.departments.update(id, { name });
-      if (oldName !== name) {
-        const stakeholders = await localDb.stakeholders.filter({ department: oldName });
-        await localDb.stakeholders.updateMany(
-          stakeholders.filter((s) => !s.deleted_at).map((s) => s.id),
-          { department: name }
-        );
-      }
-      return updated;
-    },
+    mutationFn: renameDepartment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       queryClient.invalidateQueries({ queryKey: ["stakeholders"] });
@@ -49,23 +70,10 @@ export function useRenameDepartment() {
   });
 }
 
-// Cascades to every Stakeholder currently assigned to this department,
-// clearing their department field (they become "Unassigned").
 export function useDeleteDepartment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
-      const department = await localDb.departments.get(id);
-      if (!department) throw new Error("Department not found");
-      const now = new Date().toISOString();
-      const updated = await localDb.departments.update(id, { deleted_at: now });
-      const stakeholders = await localDb.stakeholders.filter({ department: department.name });
-      await localDb.stakeholders.updateMany(
-        stakeholders.filter((s) => !s.deleted_at).map((s) => s.id),
-        { department: "" }
-      );
-      return updated;
-    },
+    mutationFn: deleteDepartment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       queryClient.invalidateQueries({ queryKey: ["stakeholders"] });

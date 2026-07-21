@@ -60,10 +60,36 @@ export function useAllTasks() {
 }
 
 // 3. CREATE TASK (SUPPORTS ANY CUSTOM PAYLOADS LIKE STAKEHOLDER_ID)
+export const createTask = (data) => localDb.tasks.create(data);
+
+// 4. UPDATE TASK (GENERIC DATA MUTATION - PERFECT FOR ASSIGNING STAKEHOLDERS,
+// ARCHIVING/RESTORING, AND TOGGLING WEEKLY FOCUS - ALL JUST FIELD PATCHES)
+export const updateTask = ({ id, data }) => localDb.tasks.update(id, data);
+
+// 6. DELETE TASK (SOFT DELETE VIA DELETED_AT TIMESTAMP)
+export const deleteTask = (id) => localDb.tasks.update(id, { deleted_at: new Date().toISOString() });
+
+// 7. TOGGLE TASK PRIORITY IN TOP THREE FOCUS LIST — max 3 per project.
+// Exported as a plain function so the chat assistant's action executor
+// shares this exact cap-checking logic with the UI's own mutation hook.
+export async function toggleTopThree({ id }) {
+  const task = await localDb.tasks.get(id);
+  if (!task) throw new Error("Task not found");
+  const nextValue = !task.is_today_top_three;
+  if (nextValue) {
+    const projectTasks = await localDb.tasks.filter({ project_id: task.project_id, is_today_top_three: true });
+    const otherTopThree = projectTasks.filter((t) => t.id !== id);
+    if (otherTopThree.length >= 3) {
+      throw new Error('Only 3 "Top 3" tasks are allowed per project');
+    }
+  }
+  return localDb.tasks.update(id, { is_today_top_three: nextValue });
+}
+
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.tasks.create(data),
+    mutationFn: createTask,
     onSuccess: (_, variables) => {
       // Invalidate both general task lists and the active project's tasks
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -75,11 +101,10 @@ export function useCreateTask() {
   });
 }
 
-// 4. UPDATE TASK (GENERIC DATA MUTATION - PERFECT FOR ASSIGNING STAKEHOLDERS)
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => localDb.tasks.update(id, data),
+    mutationFn: updateTask,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["archivedTasks"] });
@@ -91,11 +116,10 @@ export function useUpdateTask() {
   });
 }
 
-// 6. DELETE TASK (SOFT DELETE VIA DELETED_AT TIMESTAMP)
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => localDb.tasks.update(id, { deleted_at: new Date().toISOString() }),
+    mutationFn: deleteTask,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });
@@ -103,23 +127,10 @@ export function useDeleteTask() {
   });
 }
 
-// 7. TOGGLE TASK PRIORITY IN TOP THREE FOCUS LIST — max 3 per project.
 export function useToggleTopThree() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id }) => {
-      const task = await localDb.tasks.get(id);
-      if (!task) throw new Error("Task not found");
-      const nextValue = !task.is_today_top_three;
-      if (nextValue) {
-        const projectTasks = await localDb.tasks.filter({ project_id: task.project_id, is_today_top_three: true });
-        const otherTopThree = projectTasks.filter((t) => t.id !== id);
-        if (otherTopThree.length >= 3) {
-          throw new Error('Only 3 "Top 3" tasks are allowed per project');
-        }
-      }
-      return localDb.tasks.update(id, { is_today_top_three: nextValue });
-    },
+    mutationFn: toggleTopThree,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTasks"] });

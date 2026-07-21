@@ -14,10 +14,16 @@ export function useStakeholders() {
   });
 }
 
+export const createStakeholder = (data) => localDb.stakeholders.create(data);
+
+export const updateStakeholder = ({ id, data }) => localDb.stakeholders.update(id, data);
+
+export const deleteStakeholder = (id) => localDb.stakeholders.update(id, { deleted_at: new Date().toISOString() });
+
 export function useCreateStakeholder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.stakeholders.create(data),
+    mutationFn: createStakeholder,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["stakeholders"] }),
   });
 }
@@ -25,7 +31,7 @@ export function useCreateStakeholder() {
 export function useUpdateStakeholder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => localDb.stakeholders.update(id, data),
+    mutationFn: updateStakeholder,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["stakeholders"] }),
   });
 }
@@ -33,7 +39,7 @@ export function useUpdateStakeholder() {
 export function useDeleteStakeholder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => localDb.stakeholders.update(id, { deleted_at: new Date().toISOString() }),
+    mutationFn: deleteStakeholder,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["stakeholders"] }),
   });
 }

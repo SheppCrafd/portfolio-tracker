@@ -14,10 +14,37 @@ export function useProducts() {
   });
 }
 
+export const createProduct = (data) => localDb.products.create(data);
+
+export const updateProduct = ({ id, data }) => localDb.products.update(id, data);
+
+// Soft delete: tags the product deleted_at, and cascades deleted_at to every
+// child Project (and every Task under those projects). Exported as a plain
+// function so the chat assistant's action executor shares this exact cascade
+// logic with the UI's own mutation hook below.
+export async function deleteProduct(id) {
+  const now = new Date().toISOString();
+  const product = await localDb.products.update(id, { deleted_at: now });
+
+  const projects = await localDb.projects.filter({ parent_product_id: id });
+  await localDb.projects.updateMany(
+    projects.filter((p) => !p.deleted_at).map((p) => p.id),
+    { deleted_at: now }
+  );
+
+  const tasksByProject = await Promise.all(projects.map((p) => localDb.tasks.filter({ project_id: p.id })));
+  await localDb.tasks.updateMany(
+    tasksByProject.flat().filter((t) => !t.deleted_at).map((t) => t.id),
+    { deleted_at: now }
+  );
+
+  return product;
+}
+
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.products.create(data),
+    mutationFn: createProduct,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
   });
 }
@@ -25,34 +52,15 @@ export function useCreateProduct() {
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => localDb.products.update(id, data),
+    mutationFn: updateProduct,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["products"] }),
   });
 }
 
-// Soft delete: tags the product deleted_at, and cascades deleted_at to every
-// child Project (and every Task under those projects).
 export function useDeleteProduct() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
-      const now = new Date().toISOString();
-      const product = await localDb.products.update(id, { deleted_at: now });
-
-      const projects = await localDb.projects.filter({ parent_product_id: id });
-      await localDb.projects.updateMany(
-        projects.filter((p) => !p.deleted_at).map((p) => p.id),
-        { deleted_at: now }
-      );
-
-      const tasksByProject = await Promise.all(projects.map((p) => localDb.tasks.filter({ project_id: p.id })));
-      await localDb.tasks.updateMany(
-        tasksByProject.flat().filter((t) => !t.deleted_at).map((t) => t.id),
-        { deleted_at: now }
-      );
-
-      return product;
-    },
+    mutationFn: deleteProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });

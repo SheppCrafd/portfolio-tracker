@@ -82,10 +82,45 @@ export function useArchivedProjects(start, end) {
   });
 }
 
+export const moveProject = ({ id, parent_product_id }) => localDb.projects.update(id, { parent_product_id });
+
+export const updateProject = ({ id, data }) => localDb.projects.update(id, data);
+
+export const createProject = (data) => localDb.projects.create(data);
+
+// Cascading archive: tags the project is_archived, and cascades archived_at
+// to every child task. Exported as a plain function so the chat assistant's
+// action executor shares this exact cascade logic with the UI.
+export async function archiveProject(id) {
+  const now = new Date().toISOString();
+  const project = await localDb.projects.update(id, { is_archived: true, archived_at: now });
+  const tasks = await localDb.tasks.filter({ project_id: id });
+  await localDb.tasks.updateMany(tasks.map((t) => t.id), { archived_at: now });
+  return project;
+}
+
+// Soft delete: tags the project deleted_at, and cascades deleted_at to every
+// child task.
+export async function deleteProject(id) {
+  const now = new Date().toISOString();
+  const project = await localDb.projects.update(id, { deleted_at: now });
+  const tasks = await localDb.tasks.filter({ project_id: id });
+  await localDb.tasks.updateMany(tasks.filter((t) => !t.deleted_at).map((t) => t.id), { deleted_at: now });
+  return project;
+}
+
+// Restores a project and un-cascades archived_at from its tasks.
+export async function restoreProject(id) {
+  const project = await localDb.projects.update(id, { is_archived: false, archived_at: null });
+  const tasks = await localDb.tasks.filter({ project_id: id });
+  await localDb.tasks.updateMany(tasks.filter((t) => t.archived_at).map((t) => t.id), { archived_at: null });
+  return project;
+}
+
 export function useMoveProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, parent_product_id }) => localDb.projects.update(id, { parent_product_id }),
+    mutationFn: moveProject,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -93,7 +128,7 @@ export function useMoveProject() {
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => localDb.projects.update(id, data),
+    mutationFn: updateProject,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
@@ -101,23 +136,15 @@ export function useUpdateProject() {
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.projects.create(data),
+    mutationFn: createProject,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
 
-// Cascading archive: tags the project is_archived, and cascades archived_at
-// to every child task.
 export function useArchiveProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
-      const now = new Date().toISOString();
-      const project = await localDb.projects.update(id, { is_archived: true, archived_at: now });
-      const tasks = await localDb.tasks.filter({ project_id: id });
-      await localDb.tasks.updateMany(tasks.map((t) => t.id), { archived_at: now });
-      return project;
-    },
+    mutationFn: archiveProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["archivedProjects"] });
@@ -126,18 +153,10 @@ export function useArchiveProject() {
   });
 }
 
-// Soft delete: tags the project deleted_at, and cascades deleted_at to every
-// child task.
 export function useDeleteProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
-      const now = new Date().toISOString();
-      const project = await localDb.projects.update(id, { deleted_at: now });
-      const tasks = await localDb.tasks.filter({ project_id: id });
-      await localDb.tasks.updateMany(tasks.filter((t) => !t.deleted_at).map((t) => t.id), { deleted_at: now });
-      return project;
-    },
+    mutationFn: deleteProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["archivedProjects"] });
@@ -146,16 +165,10 @@ export function useDeleteProject() {
   });
 }
 
-// Restores a project and un-cascades archived_at from its tasks.
 export function useRestoreProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id) => {
-      const project = await localDb.projects.update(id, { is_archived: false, archived_at: null });
-      const tasks = await localDb.tasks.filter({ project_id: id });
-      await localDb.tasks.updateMany(tasks.filter((t) => t.archived_at).map((t) => t.id), { archived_at: null });
-      return project;
-    },
+    mutationFn: restoreProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["archivedProjects"] });

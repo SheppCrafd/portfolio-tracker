@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Bot, Sparkles, HelpCircle, Smile } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import { localDb } from "@/lib/localDb";
+import { executeAction, executeActionSequence, DESTRUCTIVE_ACTIONS, NON_EXECUTABLE_ACTIONS } from "@/lib/chatActions";
 import { usePositionedMenu } from "@/hooks/usePositionedMenu";
 import { useCreateChatSession } from "@/hooks/useChatSessions";
 import { useChatMessages, useCreateChatMessage, useUpdateChatMessage } from "@/hooks/useChatMessages";
@@ -136,8 +138,38 @@ export function useChatController({ activeProjectId } = {}) {
     }
   };
 
+  // aiChatStream only ever decides a plan now — it never touches your data.
+  // Your current local dataset is sent along with the message so the LLM
+  // can see it, and the returned actions are executed here, against
+  // localDb, via chatActions.js. Nothing about your projects/tasks/etc. is
+  // ever written back to Base44.
   const invokeAssistant = async (payload) => {
-    const res = await base44.functions.invoke("aiChatStream", payload);
+    const [areas, products, projects, allTasks, stakeholders, departments, notes] = await Promise.all([
+      localDb.areas.list(),
+      localDb.products.list(),
+      localDb.projects.list(),
+      localDb.tasks.list(),
+      localDb.stakeholders.list(),
+      localDb.departments.list(),
+      localDb.projectNotes.list(),
+    ]);
+    const projectsActive = projects.filter((p) => !p.is_archived && !p.deleted_at);
+    const archivedProjects = projects.filter((p) => p.is_archived && !p.deleted_at);
+    const tasks = allTasks.filter((t) => !t.archived_at && !t.deleted_at);
+    const archivedTasks = allTasks.filter((t) => t.archived_at && !t.deleted_at);
+
+    const res = await base44.functions.invoke("aiChatStream", {
+      ...payload,
+      areas: areas.filter((a) => !a.deleted_at),
+      products: products.filter((p) => !p.deleted_at),
+      projects: projectsActive,
+      archivedProjects,
+      tasks,
+      archivedTasks,
+      stakeholders: stakeholders.filter((s) => !s.deleted_at),
+      departments: departments.filter((d) => !d.deleted_at),
+      notes,
+    });
     if (res.data?.error) throw new Error(res.data.error);
     return res.data;
   };
@@ -148,7 +180,7 @@ export function useChatController({ activeProjectId } = {}) {
     setActionHistory((prev) => prev.slice(0, -1));
     const { type, ...args } = last;
     try {
-      await invokeAssistant({ confirmedAction: { action: type, args, confirmMessage: "Undone." } });
+      await executeAction(type, args);
       invalidateAppQueries();
     } catch {
       // best-effort — surfaced via the assistant's own reply already
@@ -175,29 +207,38 @@ export function useChatController({ activeProjectId } = {}) {
         .join("\n");
 
       const data = await invokeAssistant({ message: userText, conversationHistory, activeProjectId });
+      const actions = data.actions || [];
 
-      if (data.action === "UNDO_LAST_ACTION") {
-        await runUndo();
+      if (actions.length === 0 || actions.every((a) => NON_EXECUTABLE_ACTIONS.has(a.action))) {
+        if (actions[0]?.action === "UNDO_LAST_ACTION") {
+          await runUndo();
+        }
         await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: data.reply });
         return;
       }
 
-      if (data.pending_action) {
-        await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: data.reply, pending_action: data.pending_action });
+      const executable = actions.filter((a) => !NON_EXECUTABLE_ACTIONS.has(a.action));
+
+      if (executable.some((a) => DESTRUCTIVE_ACTIONS.has(a.action))) {
+        await createMessage.mutateAsync({
+          session_id: sessionId, role: "assistant", content: data.reply,
+          pending_action: { actions: executable, confirmMessage: data.reply },
+        });
         return;
       }
 
-      // A response can now carry a whole plan's worth of steps (mass
+      const results = await executeActionSequence(executable);
+      // A response can carry a whole plan's worth of steps (mass
       // populate/delete) instead of just one — collect every step's undo
       // info, if any, so each stays individually undoable via
       // UNDO_LAST_ACTION (which only ever pops the single most recent one).
-      const undos = (data.results || []).map((r) => r.toolResult?.undo).filter(Boolean);
+      const undos = results.map((r) => r.toolResult?.undo).filter(Boolean);
       if (undos.length) {
         setActionHistory((prev) => [...prev, ...undos]);
       }
 
       await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: data.reply });
-      if (data.action) invalidateAppQueries();
+      invalidateAppQueries();
     } catch (error) {
       await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: `⚠️ Error: ${error.message}` });
     } finally {
@@ -209,9 +250,9 @@ export function useChatController({ activeProjectId } = {}) {
     setResolvingId(message.id);
     setIsComputing(true);
     try {
-      const data = await invokeAssistant({ confirmedAction: message.pending_action });
+      await executeActionSequence(message.pending_action.actions);
       await updateMessage.mutateAsync({ id: message.id, data: { session_id: message.session_id, pending_action: null } });
-      await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: data.reply || "Done." });
+      await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: message.pending_action.confirmMessage || "Done." });
       invalidateAppQueries();
     } catch (error) {
       await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: `⚠️ Couldn't complete that: ${error.message}` });

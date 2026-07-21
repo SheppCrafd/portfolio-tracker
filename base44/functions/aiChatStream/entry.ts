@@ -1,67 +1,16 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 
-// Full-capability chat assistant backend. The client sends the user's
-// message (plus recent conversation text); this function gathers complete
-// app context (including archived data), asks the LLM to pick one action
-// from the full catalog below (using the REAL entity field names, not the
-// legacy client-side prompt's guessed ones), and executes it server-side
-// under the authenticated request context.
-//
-// Destructive actions (DELETE_*) are never executed on the first pass: they
-// come back as `pending_action` for the client to confirm, then get
-// re-submitted with `confirmedAction` set to actually run — mirroring the
-// confirm dialog a human gets from the equivalent UI button.
-
-const DESTRUCTIVE_ACTIONS = new Set([
-  'DELETE_AREA',
-  'DELETE_PRODUCT',
-  'DELETE_PROJECT',
-  'DELETE_TASK',
-  'DELETE_STAKEHOLDER',
-  'DELETE_NOTE',
-  'DELETE_DEPARTMENT',
-  // Not a delete, but a bulk mutation across potentially many tasks at
-  // once — confirmed first for the same reason the UI's "Clear Done"
-  // button is, even though a single ARCHIVE_TASK isn't.
-  'ARCHIVE_DONE_TASKS',
-  // Mass deletion — always confirmed first, same as every single DELETE_*
-  // above, just covering however many ids were batched into one request.
-  'BULK_DELETE',
-]);
-
-// BULK_CREATE/BULK_DELETE route each item/id through the matching single
-// action's case in executeAction (below) rather than duplicating its
-// create/cascade logic, so the two paths can never drift out of sync.
-const BULK_CREATE_ACTION_BY_TYPE = {
-  area: 'CREATE_AREA',
-  product: 'CREATE_PRODUCT',
-  project: 'CREATE_PROJECT',
-  task: 'CREATE_TASK',
-  note: 'CREATE_NOTE',
-  stakeholder: 'CREATE_STAKEHOLDER',
-  department: 'CREATE_DEPARTMENT',
-};
-
-const BULK_DELETE_ACTION_AND_ID_KEY_BY_TYPE = {
-  area: ['DELETE_AREA', 'area_id'],
-  product: ['DELETE_PRODUCT', 'product_id'],
-  project: ['DELETE_PROJECT', 'project_id'],
-  task: ['DELETE_TASK', 'task_id'],
-  note: ['DELETE_NOTE', 'note_id'],
-  stakeholder: ['DELETE_STAKEHOLDER', 'stakeholder_id'],
-  department: ['DELETE_DEPARTMENT', 'department_id'],
-};
-
-// A single chat turn can now resolve to a whole ordered plan (e.g. "populate
-// my workspace with test data" → an Area, a couple Products, several
-// Projects, a handful of Tasks each) instead of exactly one action. Capped
-// generously above any realistic manual request so a runaway LLM response
-// can't spawn an unbounded number of records in one turn.
-const MAX_ACTIONS_PER_REQUEST = 60;
-
-// Actions that don't touch the database — never gated behind confirmation
-// and never counted as "did something" for query-invalidation purposes.
-const NON_EXECUTABLE_ACTIONS = new Set(['CHAT_ONLY', 'UNKNOWN', 'UNDO_LAST_ACTION']);
+// Chat "brain" only — this function never touches your project data itself.
+// The client sends its current local dataset (areas/products/projects/tasks/
+// etc, all of which live in the browser's localStorage, never a server
+// database) along with the message; this function asks the LLM to pick an
+// action plan from the full catalog below, using the REAL entity field
+// names, and returns that plan to the client UNEXECUTED. The client is
+// responsible for actually running it (src/lib/chatActions.js) against its
+// own local data and for holding destructive actions for a confirm step —
+// nothing here writes anything anywhere. Your project data touches this
+// function only in transit, for this one request, to let the LLM see it;
+// nothing is persisted here.
 
 const ACTION_CATALOG = `
 [AVAILABLE ACTIONS — use the exact field names shown, they match the real database schema]
@@ -145,10 +94,14 @@ TEMP IDS: give an action a "temp_id" (any short label you invent, e.g. "area1") 
 
 EXAMPLE — "set up a sample Area with two Products and a Project each, with a few Tasks" becomes one ordered list: CREATE_AREA (temp_id "area1") → CREATE_PRODUCT ×2 (parent_area_id "$area1", temp_id "product1"/"product2") → CREATE_PROJECT ×2 (parent_area_id "$area1", parent_product_id "$product1" or "$product2", temp_id "project1"/"project2") → BULK_CREATE of type "task" for each project (project_id "$project1" / "$project2").
 
-POPULATING WITH SAMPLE/TEST DATA: when the user asks you to populate, seed, or fill their workspace with sample/test/dummy/placeholder data, build a plan like the example above — invent plausible, clearly-labeled content (e.g. prefix titles with "Sample" or "Test") unless they specify exact content, and keep it to a modest, reasonable size (a couple Areas, a couple Products/Projects each, a handful of Tasks each) unless they ask for a specific larger count. Never exceed ${MAX_ACTIONS_PER_REQUEST} actions in one plan — if a request would need more, do a smaller representative batch and tell the user you scaled it down and why.
+POPULATING WITH SAMPLE/TEST DATA: when the user asks you to populate, seed, or fill their workspace with sample/test/dummy/placeholder data, build a plan like the example above — invent plausible, clearly-labeled content (e.g. prefix titles with "Sample" or "Test") unless they specify exact content, and keep it to a modest, reasonable size (a couple Areas, a couple Products/Projects each, a handful of Tasks each) unless they ask for a specific larger count. Never exceed 60 actions in one plan — if a request would need more, do a smaller representative batch and tell the user you scaled it down and why.
 
-MASS DELETION works the same way: list every DELETE_*/BULK_DELETE action the request calls for in one plan. If ANY action in the plan is destructive, the ENTIRE plan is held for a single confirmation before anything runs — never split a mixed plan to sneak the destructive part through unconfirmed.
+MASS DELETION works the same way: list every DELETE_*/BULK_DELETE action the request calls for in one plan. If ANY action in the plan is destructive, the ENTIRE plan is held for a single confirmation before anything runs — never split a mixed plan to sneak the destructive part through unconfirmed. (Whether to actually hold for confirmation is decided client-side now — this function just returns the plan either way — but plan as if it still matters, since it does, just one layer further out.)
+
+CRITICAL: never phrase your "message" as if you already performed an action unless you actually included the corresponding action(s) in "actions". If you're only answering a question or chatting, use "CHAT_ONLY" and phrase your message accordingly — don't claim success you didn't (and can't, from here) deliver.
 `;
+
+const MAX_ACTIONS_PER_REQUEST = 60;
 
 function buildPrompt({ activeProjectId, areas, products, projects, archivedProjects, tasks, archivedTasks, stakeholders, departments, notes, conversationHistory, userText }) {
   return `[SYSTEM INSTRUCTIONS]
@@ -187,315 +140,13 @@ Each action's "args_json" must be a JSON-encoded STRING (not a nested object) co
 { "actions": [ { "action": "ACTION_NAME", "args_json": "{...}", "temp_id": "optional_label" } ], "message": "your reply to the user, matching their tone, in markdown" }`;
 }
 
-async function executeAction(base44, action, args) {
-  switch (action) {
-    case 'CREATE_AREA': {
-      const area = await base44.entities.Area.create({ title: args.title, description: args.description });
-      return { toolResult: { area } };
-    }
-    case 'UPDATE_AREA': {
-      const area = await base44.entities.Area.update(args.area_id, { title: args.title, description: args.description });
-      return { toolResult: { area } };
-    }
-    case 'DELETE_AREA': {
-      const now = new Date().toISOString();
-      const area = await base44.entities.Area.update(args.area_id, { deleted_at: now });
-      const products = await base44.entities.Product.filter({ parent_area_id: args.area_id });
-      await Promise.all(products.filter((p) => !p.deleted_at).map((p) => base44.entities.Product.update(p.id, { deleted_at: now })));
-      const projects = await base44.entities.Project.filter({ parent_area_id: args.area_id });
-      await Promise.all(projects.filter((p) => !p.deleted_at).map((p) => base44.entities.Project.update(p.id, { deleted_at: now })));
-      const tasksByProject = await Promise.all(projects.map((p) => base44.entities.Task.filter({ project_id: p.id })));
-      await Promise.all(tasksByProject.flat().filter((t) => !t.deleted_at).map((t) => base44.entities.Task.update(t.id, { deleted_at: now })));
-      return { toolResult: { area } };
-    }
-
-    case 'CREATE_PRODUCT': {
-      const product = await base44.entities.Product.create({
-        parent_area_id: args.parent_area_id,
-        title: args.title,
-        description: args.description,
-        stakeholder_ids: args.stakeholder_ids || [],
-      });
-      return { toolResult: { product } };
-    }
-    case 'UPDATE_PRODUCT': {
-      const { product_id, ...rest } = args;
-      const product = await base44.entities.Product.update(product_id, rest);
-      return { toolResult: { product } };
-    }
-    case 'DELETE_PRODUCT': {
-      const product = await base44.entities.Product.update(args.product_id, { deleted_at: new Date().toISOString() });
-      return { toolResult: { product } };
-    }
-
-    case 'CREATE_PROJECT': {
-      const project = await base44.entities.Project.create({
-        parent_area_id: args.parent_area_id,
-        parent_product_id: args.parent_product_id || null,
-        title: args.title,
-        objective: args.objective,
-        problem_statement: args.problem_statement,
-        owner_name: args.owner_name,
-        due_date: args.due_date,
-        due_date_status: args.due_date_status || 'ESTIMATED',
-        stakeholder_ids: args.stakeholder_ids || [],
-        related_product_ids: args.related_product_ids || [],
-      });
-      return { toolResult: { project } };
-    }
-    case 'UPDATE_PROJECT': {
-      const { project_id, ...rest } = args;
-      const project = await base44.entities.Project.update(project_id, rest);
-      return { toolResult: { project } };
-    }
-    case 'MOVE_PROJECT': {
-      const project = await base44.entities.Project.update(args.project_id, {
-        parent_product_id: args.parent_product_id ?? null,
-        parent_area_id: args.parent_area_id,
-      });
-      return { toolResult: { project } };
-    }
-    case 'ARCHIVE_PROJECT': {
-      const project = await base44.entities.Project.update(args.project_id, { is_archived: true });
-      const tasks = await base44.entities.Task.filter({ project_id: args.project_id });
-      const now = new Date().toISOString();
-      await Promise.all(tasks.map((t) => base44.entities.Task.update(t.id, { archived_at: now })));
-      return { toolResult: { project } };
-    }
-    case 'RESTORE_PROJECT': {
-      const project = await base44.entities.Project.update(args.project_id, { is_archived: false });
-      const tasks = await base44.entities.Task.filter({ project_id: args.project_id });
-      await Promise.all(tasks.filter((t) => t.archived_at).map((t) => base44.entities.Task.update(t.id, { archived_at: null })));
-      return { toolResult: { project } };
-    }
-    case 'DELETE_PROJECT': {
-      const now = new Date().toISOString();
-      const project = await base44.entities.Project.update(args.project_id, { deleted_at: now });
-      const tasks = await base44.entities.Task.filter({ project_id: args.project_id });
-      await Promise.all(tasks.filter((t) => !t.deleted_at).map((t) => base44.entities.Task.update(t.id, { deleted_at: now })));
-      return { toolResult: { project } };
-    }
-
-    case 'CREATE_NOTE': {
-      const note = await base44.entities.ProjectNote.create({
-        project_id: args.project_id,
-        type: args.type || 'NOTE',
-        content: args.content,
-        reporter: args.reporter,
-        stakeholder_ids: args.stakeholder_ids || [],
-      });
-      return { toolResult: { note } };
-    }
-    case 'UPDATE_NOTE': {
-      const note = await base44.entities.ProjectNote.update(args.note_id, { content: args.content });
-      return { toolResult: { note } };
-    }
-    case 'DELETE_NOTE': {
-      await base44.entities.ProjectNote.delete(args.note_id);
-      return { toolResult: {} };
-    }
-
-    case 'CREATE_TASK': {
-      const task = await base44.entities.Task.create({
-        project_id: args.project_id,
-        description: args.description,
-        quadrant: args.quadrant ?? null,
-        type: args.type || 'OTHER',
-        is_highly_important: !!args.is_highly_important,
-        is_quick_task: !!args.is_quick_task,
-        stakeholder_ids: args.stakeholder_ids || [],
-        status: args.status || 'NOT_STARTED',
-        notes: args.notes || '',
-        is_weekly_focus: !!args.is_weekly_focus,
-      });
-      return { toolResult: { task } };
-    }
-    case 'UPDATE_TASK': {
-      const { task_id, ...rest } = args;
-      const task = await base44.entities.Task.update(task_id, rest);
-      return { toolResult: { task } };
-    }
-    case 'UPDATE_TASK_STATUS': {
-      const previous = await base44.entities.Task.get(args.task_id);
-      const task = await base44.entities.Task.update(args.task_id, { status: args.status });
-      return { toolResult: { task, previousStatus: previous?.status, undo: { type: 'UPDATE_TASK_STATUS', task_id: args.task_id, status: previous?.status } } };
-    }
-    case 'TOGGLE_WEEKLY_FOCUS': {
-      const previous = await base44.entities.Task.get(args.task_id);
-      const task = await base44.entities.Task.update(args.task_id, { is_weekly_focus: !previous?.is_weekly_focus });
-      return { toolResult: { task, undo: { type: 'TOGGLE_WEEKLY_FOCUS', task_id: args.task_id } } };
-    }
-    case 'TOGGLE_TOP_THREE': {
-      const previous = await base44.entities.Task.get(args.task_id);
-      if (!previous) throw new Error('Task not found');
-      const nextValue = !previous.is_today_top_three;
-      if (nextValue) {
-        const projectTasks = await base44.entities.Task.filter({ project_id: previous.project_id, is_today_top_three: true });
-        if (projectTasks.filter((t) => t.id !== args.task_id).length >= 3) {
-          throw new Error('Only 3 "Top 3" tasks are allowed per project');
-        }
-      }
-      const task = await base44.entities.Task.update(args.task_id, { is_today_top_three: nextValue });
-      return { toolResult: { task, undo: { type: 'TOGGLE_TOP_THREE', task_id: args.task_id } } };
-    }
-    case 'ARCHIVE_TASK': {
-      const task = await base44.entities.Task.update(args.task_id, { archived_at: new Date().toISOString() });
-      return { toolResult: { task } };
-    }
-    case 'ARCHIVE_DONE_TASKS': {
-      const tasks = await base44.entities.Task.filter({ project_id: args.project_id });
-      const now = new Date().toISOString();
-      const doneTasks = tasks.filter((t) => !t.archived_at && (t.status === 'DONE' || t.status === 'DELEGATED_DONE'));
-      const archived = await Promise.all(doneTasks.map((t) => base44.entities.Task.update(t.id, { archived_at: now })));
-      return { toolResult: { tasks: archived, count: archived.length } };
-    }
-    case 'RESTORE_TASK': {
-      const task = await base44.entities.Task.update(args.task_id, { archived_at: null });
-      return { toolResult: { task } };
-    }
-    case 'DELETE_TASK': {
-      const task = await base44.entities.Task.update(args.task_id, { deleted_at: new Date().toISOString() });
-      return { toolResult: { task } };
-    }
-
-    case 'CREATE_STAKEHOLDER': {
-      const stakeholder = await base44.entities.Stakeholder.create({ name: args.name, department: args.department, avatar_url: args.avatar_url });
-      return { toolResult: { stakeholder } };
-    }
-    case 'UPDATE_STAKEHOLDER': {
-      const { stakeholder_id, ...rest } = args;
-      const stakeholder = await base44.entities.Stakeholder.update(stakeholder_id, rest);
-      return { toolResult: { stakeholder } };
-    }
-    case 'DELETE_STAKEHOLDER': {
-      const stakeholder = await base44.entities.Stakeholder.update(args.stakeholder_id, { deleted_at: new Date().toISOString() });
-      return { toolResult: { stakeholder } };
-    }
-
-    case 'CREATE_DEPARTMENT': {
-      const department = await base44.entities.Department.create({ name: args.name });
-      return { toolResult: { department } };
-    }
-    case 'RENAME_DEPARTMENT': {
-      const department = await base44.entities.Department.get(args.department_id);
-      if (!department) throw new Error('Department not found');
-      const oldName = department.name;
-      const updated = await base44.entities.Department.update(args.department_id, { name: args.name });
-      if (oldName !== args.name) {
-        const members = await base44.entities.Stakeholder.filter({ department: oldName });
-        await Promise.all(members.filter((s) => !s.deleted_at).map((s) => base44.entities.Stakeholder.update(s.id, { department: args.name })));
-      }
-      return { toolResult: { department: updated } };
-    }
-    case 'DELETE_DEPARTMENT': {
-      const department = await base44.entities.Department.get(args.department_id);
-      if (!department) throw new Error('Department not found');
-      const now = new Date().toISOString();
-      const updated = await base44.entities.Department.update(args.department_id, { deleted_at: now });
-      const members = await base44.entities.Stakeholder.filter({ department: department.name });
-      await Promise.all(members.filter((s) => !s.deleted_at).map((s) => base44.entities.Stakeholder.update(s.id, { department: '' })));
-      return { toolResult: { department: updated } };
-    }
-
-    case 'SET_CUSTOM_FIELD': {
-      const entityMap = { project: base44.entities.Project, product: base44.entities.Product, area: base44.entities.Area };
-      const entityApi = entityMap[args.entity_type];
-      if (!entityApi) throw new Error(`Unknown entity_type "${args.entity_type}"`);
-      const entity = await entityApi.get(args.entity_id);
-      if (!entity) throw new Error('Entity not found');
-      const key = String(args.label).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'field';
-      const custom_data = { ...entity.custom_data, [key]: { label: args.label, value: args.value } };
-      const display_on_card_fields = args.show_on_card
-        ? [...new Set([...(entity.display_on_card_fields || []), key])]
-        : entity.display_on_card_fields || [];
-      const updated = await entityApi.update(args.entity_id, { custom_data, display_on_card_fields });
-
-      if (args.area_wide && args.entity_type !== 'area' && entity.parent_area_id) {
-        const area = await base44.entities.Area.get(entity.parent_area_id);
-        if (area) {
-          const fieldListKey = `${args.entity_type}_fields`;
-          const existingFields = area.custom_schema?.[fieldListKey] || [];
-          if (!existingFields.some((f) => f.key === key)) {
-            await base44.entities.Area.update(area.id, {
-              custom_schema: { ...area.custom_schema, [fieldListKey]: [...existingFields, { key, label: args.label }] },
-            });
-          }
-        }
-      }
-
-      return { toolResult: { entity: updated } };
-    }
-
-    case 'BULK_CREATE': {
-      const { entity_type, items } = args;
-      const createAction = BULK_CREATE_ACTION_BY_TYPE[entity_type];
-      if (!createAction) throw new Error(`Unknown entity_type "${entity_type}" for BULK_CREATE`);
-      if (!Array.isArray(items) || items.length === 0) throw new Error('items must be a non-empty array');
-      const results = await Promise.all(items.map((item) => executeAction(base44, createAction, item)));
-      const created = results.map((r) => Object.values(r.toolResult)[0]);
-      return { toolResult: { entity_type, items: created, count: created.length } };
-    }
-    case 'BULK_DELETE': {
-      const { entity_type, ids } = args;
-      const mapping = BULK_DELETE_ACTION_AND_ID_KEY_BY_TYPE[entity_type];
-      if (!mapping) throw new Error(`Unknown entity_type "${entity_type}" for BULK_DELETE`);
-      if (!Array.isArray(ids) || ids.length === 0) throw new Error('ids must be a non-empty array');
-      const [deleteAction, idKey] = mapping;
-      await Promise.all(ids.map((id) => executeAction(base44, deleteAction, { [idKey]: id })));
-      return { toolResult: { entity_type, count: ids.length } };
-    }
-
-    default:
-      throw new Error(`Unknown action "${action}"`);
-  }
-}
-
-// Resolves "$temp_id" placeholders (see [MULTI-STEP PLANS] in the prompt)
-// against ids captured from earlier steps in the same plan. Walks arrays and
-// plain objects recursively so a placeholder can appear anywhere in an
-// action's args (a scalar id field, or buried in an array like
-// stakeholder_ids) — untouched (including any string that isn't a bare
-// "$label" reference) if no matching temp id was captured.
-function resolvePlaceholders(value, tempIdMap) {
-  if (typeof value === 'string') {
-    const match = value.match(/^\$(.+)$/);
-    return match && tempIdMap[match[1]] !== undefined ? tempIdMap[match[1]] : value;
-  }
-  if (Array.isArray(value)) return value.map((v) => resolvePlaceholders(v, tempIdMap));
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolvePlaceholders(v, tempIdMap)]));
-  }
-  return value;
-}
-
-// Runs a plan's actions in order (not in parallel — later steps may depend
-// on ids captured from earlier ones via temp_id/$placeholder). Each step's
-// toolResult is expected to carry its created/updated record as the single
-// value of a one-key object (e.g. `{ area }`, `{ product }`) — true for
-// every CREATE_* case above — so its real id can be captured for any later
-// step that referenced this one's temp_id.
-async function executeActionSequence(base44, actions) {
-  const tempIdMap = {};
-  const steps = [];
-  for (const step of actions) {
-    const resolvedArgs = resolvePlaceholders(step.args || {}, tempIdMap);
-    const result = await executeAction(base44, step.action, resolvedArgs);
-    if (step.temp_id) {
-      const created = Object.values(result.toolResult || {})[0];
-      if (created && typeof created === 'object' && created.id) tempIdMap[step.temp_id] = created.id;
-    }
-    steps.push({ action: step.action, toolResult: result.toolResult });
-  }
-  return steps;
-}
-
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Reject anonymous requests before any parsing or execution. Without
-    // this, anyone who knew the function URL could submit a confirmedAction
-    // (DELETE_*, BULK_DELETE, etc.) or read the full app context unauthenticated.
+    // Reject anonymous requests before any parsing or LLM call. Without
+    // this, anyone who knew the function URL could invoke it and read
+    // whatever local data a client chose to send.
     let user = null;
     try {
       user = await base44.auth.me();
@@ -507,50 +158,17 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { confirmedAction } = body;
-
-    // Second round-trip: the client already showed a confirm prompt and the
-    // user accepted, so just run the plan — no LLM call needed. Accepts
-    // either the current `{ actions: [...] }` shape or the older single
-    // `{ action, args }` shape (still used by the client's own undo
-    // round-trip), normalized to a one-item plan.
-    if (confirmedAction) {
-      const actions = confirmedAction.actions || [{ action: confirmedAction.action, args: confirmedAction.args }];
-      const results = await executeActionSequence(base44, actions);
-      return Response.json({ reply: confirmedAction.confirmMessage || 'Done.', results, action: results[results.length - 1]?.action });
-    }
-
-    const { message, conversationHistory, activeProjectId } = body;
+    const {
+      message, conversationHistory, activeProjectId,
+      areas = [], products = [], projects = [], archivedProjects = [],
+      tasks = [], archivedTasks = [], stakeholders = [], departments = [], notes = [],
+    } = body;
     if (!message) return Response.json({ error: 'message is required' }, { status: 400 });
 
-    const [areas, products, allProjects, allTasksRaw, stakeholders, notes, departments] = await Promise.all([
-      base44.entities.Area.list(),
-      base44.entities.Product.list(),
-      base44.entities.Project.list(),
-      base44.entities.Task.list(),
-      base44.entities.Stakeholder.list(),
-      base44.entities.ProjectNote.list(),
-      base44.entities.Department.list(),
-    ]);
-
-    const projects = allProjects.filter((p) => !p.is_archived && !p.deleted_at);
-    const archivedProjects = allProjects.filter((p) => p.is_archived && !p.deleted_at);
-    const tasks = allTasksRaw.filter((t) => !t.archived_at && !t.deleted_at);
-    const archivedTasks = allTasksRaw.filter((t) => t.archived_at && !t.deleted_at);
-
     const prompt = buildPrompt({
-      activeProjectId,
-      areas: areas.filter((a) => !a.deleted_at),
-      products: products.filter((p) => !p.deleted_at),
-      projects,
-      archivedProjects,
-      tasks,
-      archivedTasks,
-      stakeholders: stakeholders.filter((s) => !s.deleted_at),
-      departments: departments.filter((d) => !d.deleted_at),
-      notes,
-      conversationHistory,
-      userText: message,
+      activeProjectId, areas, products, projects, archivedProjects,
+      tasks, archivedTasks, stakeholders, departments, notes,
+      conversationHistory, userText: message,
     });
 
     const response = await base44.integrations.Core.InvokeLLM({
@@ -586,7 +204,7 @@ Deno.serve(async (req) => {
       const clean = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
       decision = JSON.parse(clean);
     } catch {
-      return Response.json({ reply: "Hit a bump parsing that request. Try again?" });
+      return Response.json({ reply: "Hit a bump parsing that request. Try again?", actions: [] });
     }
 
     const { message: reply } = decision;
@@ -601,26 +219,7 @@ Deno.serve(async (req) => {
       return { action: a.action, args, temp_id: a.temp_id };
     });
 
-    if (actions.length === 0 || actions.every((a) => NON_EXECUTABLE_ACTIONS.has(a.action))) {
-      if (actions[0]?.action === 'UNDO_LAST_ACTION') {
-        // The undo target lives in the client's local history (last
-        // mutation it applied), so just tell the client to handle it.
-        return Response.json({ reply, action: 'UNDO_LAST_ACTION' });
-      }
-      return Response.json({ reply: reply || "I couldn't map that to an action — could you rephrase?" });
-    }
-
-    const executable = actions.filter((a) => !NON_EXECUTABLE_ACTIONS.has(a.action));
-
-    if (executable.some((a) => DESTRUCTIVE_ACTIONS.has(a.action))) {
-      return Response.json({
-        reply,
-        pending_action: { actions: executable, confirmMessage: reply },
-      });
-    }
-
-    const results = await executeActionSequence(base44, executable);
-    return Response.json({ reply, results, action: results[results.length - 1]?.action });
+    return Response.json({ reply: reply || "I couldn't map that to an action — could you rephrase?", actions });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

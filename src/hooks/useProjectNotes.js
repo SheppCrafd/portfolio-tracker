@@ -20,10 +20,16 @@ export function useAllProjectNotes() {
   });
 }
 
+export const createProjectNote = (data) => localDb.projectNotes.create(data);
+
+export const updateProjectNote = ({ id, data }) => localDb.projectNotes.update(id, data);
+
+export const deleteProjectNote = (id) => localDb.projectNotes.delete(id);
+
 export function useCreateProjectNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data) => localDb.projectNotes.create(data),
+    mutationFn: createProjectNote,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["projectNotes", variables.project_id] });
       queryClient.invalidateQueries({ queryKey: ["allProjectNotes"] });
@@ -34,7 +40,7 @@ export function useCreateProjectNote() {
 export function useUpdateProjectNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }) => localDb.projectNotes.update(id, data),
+    mutationFn: updateProjectNote,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projectNotes"] });
       queryClient.invalidateQueries({ queryKey: ["allProjectNotes"] });
@@ -45,7 +51,7 @@ export function useUpdateProjectNote() {
 export function useDeleteProjectNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id) => localDb.projectNotes.delete(id),
+    mutationFn: deleteProjectNote,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projectNotes"] });
       queryClient.invalidateQueries({ queryKey: ["allProjectNotes"] });

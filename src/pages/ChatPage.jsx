@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Paperclip, PanelLeftClose, PanelLeft } from "lucide-react";
+import { ArrowLeft, Plus, Paperclip, PanelLeftClose, PanelLeft, Info } from "lucide-react";
 import { useRef, useState } from "react";
 import { useChatController } from "@/hooks/useChatController";
 import { useChatSessions } from "@/hooks/useChatSessions";
@@ -90,6 +90,11 @@ export default function ChatPage() {
             <ChatIcon iconChoice={chat.iconChoice} className="w-5 h-5" />
             <span className="font-heading font-semibold text-sm">PM Copilot</span>
           </button>
+          <Info
+            className="w-4 h-4 text-muted-foreground cursor-help ml-auto"
+            aria-label="Privacy notice"
+            title="Everything else in this app stays on your device. Chat is the one exception: your current data is sent to an AI service to answer you, only for that one exchange — nothing is stored on a server."
+          />
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col max-w-3xl w-full mx-auto">

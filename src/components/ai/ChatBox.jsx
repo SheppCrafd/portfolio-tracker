@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Plus, ChevronLeft, Paperclip, Maximize2 } from "lucide-react";
+import { X, Plus, ChevronLeft, Paperclip, Maximize2, Info } from "lucide-react";
 import { useChatController } from "@/hooks/useChatController";
 import { useWindowGeometry } from "@/hooks/useWindowGeometry";
 import { useSlashCommand } from "@/hooks/useSlashCommand";
@@ -91,6 +91,11 @@ export default function ChatBox({ activeProjectId }) {
               </button>
             </div>
             <div className="flex items-center gap-2">
+              <Info
+                className="w-3.5 h-3.5 text-primary-foreground/70 cursor-help"
+                aria-label="Privacy notice"
+                title="Everything else in this app stays on your device. Chat is the one exception: your current data is sent to an AI service to answer you, only for that one exchange — nothing is stored on a server."
+              />
               <button
                 onClick={() => navigate("/chat")}
                 aria-label="Expand to full page"
