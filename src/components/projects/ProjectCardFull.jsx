@@ -224,14 +224,15 @@ export default function ProjectCardFull({ project, stakeholderIds = [] }) {
       ref={setRefs}
       style={style}
       data-project-card={project.id}
-      // No `max-w-full` here: this card sits inside a useShrinkWrapWidth
-      // container, which measures each child's rendered width as its true
-      // desired size. `max-w-full` would let a still-shrunk ancestor (e.g.
-      // right after switching to Full Cards, before anything has grown)
-      // clamp this card's measured width down, and the hook would then
-      // lock that too-small width in permanently since nothing further
-      // changes size to trigger a re-measure.
-      className={`relative bg-card border border-border rounded-xl p-3 pb-6 transition-colors w-[420px] ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
+      // No explicit width: this card is only ever rendered inside
+      // ProjectsGrid's Full-mode CSS grid branch (auto-fit/minmax(420px,
+      // 1fr)), which sets a 420px floor and grows this card via 1fr when
+      // there's leftover space — a grid item stretches to fill its column
+      // by default with no width class needed. The middle content column
+      // below is `flex-1`, so extra width goes there (more breathing room
+      // for the title/objective/notes), not to the fixed-size quadrant
+      // button or the content-sized right-hand column.
+      className={`relative bg-card border border-border rounded-xl p-3 pb-6 transition-colors ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isDragging ? "shadow-2xl scale-105 border-primary" : "shadow-sm"} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
     >
       <div
         {...attributes}

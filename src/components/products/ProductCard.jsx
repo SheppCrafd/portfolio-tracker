@@ -1,20 +1,17 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Expand } from "lucide-react";
 import { useFilter } from "@/lib/FilterContext";
-import { useCardView } from "@/lib/CardViewContext";
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllTasks } from "@/hooks/useTasks";
 import { useUpdateProduct } from "@/hooks/useProducts";
 import { useEditableField } from "@/hooks/useEditableField";
 import { useHighlightMatch } from "@/hooks/useHighlightDim";
-import { useShrinkWrapWidth } from "@/hooks/useShrinkWrapWidth";
 import EditableText from "@/components/shared/EditableText";
 import CardCustomFields from "@/components/shared/CardCustomFields";
 import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
-import ProjectCard from "@/components/projects/ProjectCard";
-import ProjectCardFull from "@/components/projects/ProjectCardFull";
+import ProjectsGrid from "@/components/shared/ProjectsGrid";
 import ProductDetailModal from "@/components/products/ProductDetailModal";
 import TaskStatistics from "@/components/shared/TaskStatistics";
 
@@ -24,9 +21,7 @@ export default function ProductCard({ product }) {
   const { data: allProjects = [] } = useProjects();
   const { data: allTasks = [] } = useAllTasks();
   const { excludedIds } = useFilter();
-  const { cardView } = useCardView();
   const updateProduct = useUpdateProduct();
-  const ProjectCardComponent = cardView === "full" ? ProjectCardFull : ProjectCard;
 
   const { value: title, handleInput, handleBlur: handleTitleBlur, handleKeyDown: handleTitleKeyDown } = useEditableField(
     product.title,
@@ -51,13 +46,6 @@ export default function ProductCard({ product }) {
   // to fill leftover space when there's room, wrapping to a new row when
   // there isn't). This card just needs to stretch to fill that column.
   const sizingClass = "flex flex-col";
-
-  // Same reasoning as the card itself: the projects list can force its own
-  // internal wrap, at which point plain CSS `w-fit` on this card gives up
-  // and fills all available width instead of hugging the (now multi-row)
-  // content — see useShrinkWrapWidth's own comment for why.
-  const projectsRef = useRef(null);
-  useShrinkWrapWidth(projectsRef, { gap: 8 }); // gap-2
 
   return (
     <div
@@ -103,18 +91,13 @@ export default function ProductCard({ product }) {
         />
       </div>
 
-      <div
-        ref={projectsRef}
-        className={`relative z-[1] mt-4 flex flex-wrap items-start gap-2 min-h-[80px] rounded-lg p-2 transition-colors ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : "bg-transparent"}`}
-      >
-        {projects.length === 0 ? (
-          <p className="w-full text-xs text-muted-foreground text-center py-4">Drop a project here</p>
-        ) : (
-          projects.map((project) => (
-            <ProjectCardComponent key={project.id} project={project} stakeholderIds={product.stakeholder_ids} />
-          ))
-        )}
-      </div>
+      <ProjectsGrid
+        projects={projects}
+        stakeholderIds={product.stakeholder_ids}
+        emptyMessage="Drop a project here"
+        gap={8}
+        className={`relative z-[1] mt-4 min-h-[80px] rounded-lg p-2 transition-colors ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : "bg-transparent"}`}
+      />
 
       <TaskStatistics tasks={productTasks} />
 

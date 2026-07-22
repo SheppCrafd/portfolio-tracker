@@ -1,17 +1,14 @@
-import { useRef } from "react";
 import { Trash2, Expand } from "lucide-react";
 import { useDroppable } from "@dnd-kit/core";
 import { useUpdateArea, useDeleteArea } from "@/hooks/useAreas";
 import { useAllTasks } from "@/hooks/useTasks";
 import { useEditableField } from "@/hooks/useEditableField";
-import { useShrinkWrapWidth } from "@/hooks/useShrinkWrapWidth";
 import { confirmThen } from "@/lib/entityUtils";
 import { useCardView } from "@/lib/CardViewContext";
 import EditableText from "@/components/shared/EditableText";
 import CardCustomFields from "@/components/shared/CardCustomFields";
 import ProductCard from "@/components/products/ProductCard";
-import ProjectCard from "@/components/projects/ProjectCard";
-import ProjectCardFull from "@/components/projects/ProjectCardFull";
+import ProjectsGrid from "@/components/shared/ProjectsGrid";
 import TaskStatistics from "@/components/shared/TaskStatistics";
 
 // `stakeholderIds` (the full aggregated subtree, from Dashboard.jsx) is only
@@ -24,19 +21,10 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
   const updateArea = useUpdateArea();
   const deleteArea = useDeleteArea();
   const { cardView } = useCardView();
-  const ProjectCardComponent = cardView === "full" ? ProjectCardFull : ProjectCard;
 
   const { data: allTasks = [] } = useAllTasks();
 
   const { setNodeRef, isOver } = useDroppable({ id: area.id, data: { type: "area", id: area.id } });
-
-  // Direct Projects still holds fixed-size Project cards that only cascade
-  // (never grow to fill leftover row space) — see useShrinkWrapWidth's own
-  // comment for why CSS `w-fit` alone can't shrink-wrap this box to match.
-  // The Products row above uses a CSS grid instead (see className below),
-  // since Products *should* grow to fill leftover width.
-  const orphanProjectsRef = useRef(null);
-  useShrinkWrapWidth(orphanProjectsRef, { gap: 8 }); // gap-2
 
   const { value: title, handleInput, handleBlur: handleTitleBlur, handleKeyDown: handleTitleKeyDown } = useEditableField(
     area.title,
@@ -123,15 +111,13 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Direct Projects
         </h4>
-        <div ref={orphanProjectsRef} className="flex flex-wrap items-start gap-2 min-h-[50px]">
-          {orphanProjects.length === 0 ? (
-             <p className="w-full text-xs text-muted-foreground text-center py-4">Drop a project here to remove it from a product</p>
-          ) : (
-            orphanProjects.map((project) => (
-              <ProjectCardComponent key={project.id} project={project} stakeholderIds={stakeholderIds} />
-            ))
-          )}
-        </div>
+        <ProjectsGrid
+          projects={orphanProjects}
+          stakeholderIds={stakeholderIds}
+          emptyMessage="Drop a project here to remove it from a product"
+          gap={8}
+          className="min-h-[50px]"
+        />
       </div>
 
       <TaskStatistics tasks={areaTasks} />
