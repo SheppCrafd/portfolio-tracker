@@ -92,7 +92,7 @@ function tryListen(port, attemptsLeft) {
   server.listen(port, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${port}`;
     console.log('');
-    console.log('  Portfolio Tracker is running.');
+    console.log('  Vaea is running.');
     console.log(`  ${url}`);
     console.log('');
     console.log('  All your data is stored locally in this browser only — nothing');

@@ -1,4 +1,4 @@
-# Portfolio Tracker — Production Status
+# Vaea — Production Status
 
 _Rebuilt 2026-07-16 from a from-scratch, skeptical re-audit of `src/` and `base44/` against every individual clause in `Prod_Spec.md` — not against the previous MVP_Status.md, whose "all 12 sections fully match spec" claim turned out to be wrong (the stakeholder highlight/dimming feature was fundamentally broken despite being marked `[x]`). This revision breaks every sentence of the spec into its own checklist line, verified against real code and traced logic, not against whether a similarly-named component exists._
 

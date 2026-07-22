@@ -17,13 +17,13 @@ dist-ssr
 *.local
 
 # Generated standalone launchers (built from `dist/` via standalone/build.cjs) — see standalone/README.txt
-standalone/PortfolioTracker-Windows.bat
-standalone/PortfolioTracker-Linux.sh
+standalone/Vaea-Windows.bat
+standalone/Vaea-Linux.sh
 standalone/_payload.*
 
 # Generated native executables (built via standalone/exe/build.cjs) — see standalone/exe/README.txt
-standalone/PortfolioTracker-Windows.exe
-standalone/PortfolioTracker-Linux
+standalone/Vaea-Windows.exe
+standalone/Vaea-Linux
 standalone/exe/app
 
 # Editor directories and files

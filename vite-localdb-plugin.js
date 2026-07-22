@@ -73,7 +73,7 @@ export default function localDbFilePlugin() {
   };
 
   return {
-    name: "portfolio-tracker-localdb-files",
+    name: "vaea-localdb-files",
     configureServer(server) {
       server.middlewares.use(middleware);
     },

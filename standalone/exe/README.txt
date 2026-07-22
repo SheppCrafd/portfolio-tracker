@@ -1,10 +1,10 @@
-Portfolio Tracker — native executables
+Vaea — native executables
 =========================================
 
 HOW TO RUN
 
-  Windows:      double-click PortfolioTracker-Windows.exe
-  Linux:        chmod +x PortfolioTracker-Linux && ./PortfolioTracker-Linux
+  Windows:      double-click Vaea-Windows.exe
+  Linux:        chmod +x Vaea-Linux && ./Vaea-Linux
                 (or just run it — many file managers can launch an
                 executable directly if you mark "allow executing as program"
                 in its Properties)

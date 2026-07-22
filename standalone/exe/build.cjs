@@ -37,12 +37,12 @@ function pkg(target, output) {
   });
 }
 
-pkg('node18-win-x64', path.join(OUT_DIR, 'PortfolioTracker-Windows.exe'));
-pkg('node18-linux-x64', path.join(OUT_DIR, 'PortfolioTracker-Linux'));
+pkg('node18-win-x64', path.join(OUT_DIR, 'Vaea-Windows.exe'));
+pkg('node18-linux-x64', path.join(OUT_DIR, 'Vaea-Linux'));
 
 fs.rmSync(APP_DIR, { recursive: true, force: true });
 
 console.log('');
 console.log('Wrote:');
-console.log('  standalone/PortfolioTracker-Windows.exe');
-console.log('  standalone/PortfolioTracker-Linux');
+console.log('  standalone/Vaea-Windows.exe');
+console.log('  standalone/Vaea-Linux');

@@ -1,12 +1,12 @@
-Portfolio Tracker — standalone launchers
+Vaea — standalone launchers
 ==========================================
 
 HOW TO RUN
 
-  Windows:      double-click PortfolioTracker-Windows.bat
+  Windows:      double-click Vaea-Windows.bat
   macOS/Linux:  open a terminal and run:
-                  ./PortfolioTracker-Linux.sh
-                (if that says "permission denied", run:  bash PortfolioTracker-Linux.sh)
+                  ./Vaea-Linux.sh
+                (if that says "permission denied", run:  bash Vaea-Linux.sh)
 
 Each is a single, self-contained file — the entire app is embedded inside
 it as data. There is nothing else to download or keep together with it; it
@@ -26,7 +26,7 @@ REQUIREMENTS
 No Node.js, no npm install, no separate build step, no account.
 
 There's also a heavier but zero-dependency alternative in exe/ — native
-executables (PortfolioTracker-Windows.exe, PortfolioTracker-Linux) with the
+executables (Vaea-Windows.exe, Vaea-Linux) with the
 Node.js runtime itself embedded, so even PowerShell/Python aren't required.
 ~45-50MB each instead of a few hundred KB. See exe/README.txt for details
 on when to prefer one over the other.

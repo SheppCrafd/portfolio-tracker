@@ -2,7 +2,7 @@
 set -u
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/portfolio-tracker.XXXXXX")"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/vaea.XXXXXX")"
 APPDIR="$WORKDIR/app"
 PAYLOAD="$WORKDIR/payload.b64"
 mkdir -p "$APPDIR"
@@ -78,7 +78,7 @@ def find_server():
 server, port = find_server()
 url = f'http://127.0.0.1:{port}'
 print('')
-print('  Portfolio Tracker is running.')
+print('  Vaea is running.')
 print(f'  {url}')
 print('')
 print('  All your data is stored locally in this browser only -- nothing')

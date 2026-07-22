@@ -2,7 +2,7 @@
 setlocal
 set "PTL_SELF=%~f0"
 set "PTL_MARKER=:::PAYLOAD_START:::"
-set "PTL_PS1=%TEMP%\portfolio-tracker-launcher-%RANDOM%.ps1"
+set "PTL_PS1=%TEMP%\vaea-launcher-%RANDOM%.ps1"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$src=$env:PTL_SELF;$marker=$env:PTL_MARKER;$dst=$env:PTL_PS1;$c=Get-Content -LiteralPath $src -Raw;$i=$c.LastIndexOf($marker);if($i -lt 0){Write-Error 'payload marker not found';exit 1};$payload=$c.Substring($i+$marker.Length);Set-Content -LiteralPath $dst -Value $payload -NoNewline -Encoding UTF8"
 if errorlevel 1 (
@@ -29,7 +29,7 @@ __PAYLOAD_B64__
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$tempRoot = Join-Path $env:TEMP ("portfolio-tracker-" + [System.Guid]::NewGuid().ToString('N'))
+$tempRoot = Join-Path $env:TEMP ("vaea-" + [System.Guid]::NewGuid().ToString('N'))
 $appDir = Join-Path $tempRoot 'app'
 New-Item -ItemType Directory -Path $appDir -Force | Out-Null
 $zipPath = Join-Path $tempRoot 'app.zip'
@@ -67,7 +67,7 @@ $Port = $bound.Port
 $url = "http://127.0.0.1:$Port"
 
 Write-Host ""
-Write-Host "  Portfolio Tracker is running."
+Write-Host "  Vaea is running."
 Write-Host "  $url"
 Write-Host ""
 Write-Host "  All your data is stored locally in this browser only -- nothing"

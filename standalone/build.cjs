@@ -2,7 +2,7 @@
 'use strict';
 
 // Regenerates the two self-contained standalone launchers
-// (PortfolioTracker-Windows.bat, PortfolioTracker-Linux.sh) by embedding the
+// (Vaea-Windows.bat, Vaea-Linux.sh) by embedding the
 // current production build directly into each launcher as base64. Each
 // output file is fully standalone — no companion files, nothing to lose by
 // only grabbing one file out of an archive.
@@ -42,7 +42,7 @@ fs.rmSync(zipPath);
 
 const batTemplate = fs.readFileSync(path.join(TPL_DIR, 'windows.bat.tpl'), 'utf8');
 const batOut = batTemplate.replace('__PAYLOAD_B64__', wrap(zipB64));
-fs.writeFileSync(path.join(OUT_DIR, 'PortfolioTracker-Windows.bat'), batOut.replace(/\n/g, '\r\n'));
+fs.writeFileSync(path.join(OUT_DIR, 'Vaea-Windows.bat'), batOut.replace(/\n/g, '\r\n'));
 
 // --- Linux/macOS payload: tar.gz of dist/ ---
 const tgzPath = path.join(OUT_DIR, '_payload.tar.gz');
@@ -55,9 +55,9 @@ fs.rmSync(tgzPath);
 
 const shTemplate = fs.readFileSync(path.join(TPL_DIR, 'linux.sh.tpl'), 'utf8');
 const shOut = shTemplate.replace('__PAYLOAD_B64__', wrap(tgzB64));
-fs.writeFileSync(path.join(OUT_DIR, 'PortfolioTracker-Linux.sh'), shOut, { mode: 0o755 });
-fs.chmodSync(path.join(OUT_DIR, 'PortfolioTracker-Linux.sh'), 0o755);
+fs.writeFileSync(path.join(OUT_DIR, 'Vaea-Linux.sh'), shOut, { mode: 0o755 });
+fs.chmodSync(path.join(OUT_DIR, 'Vaea-Linux.sh'), 0o755);
 
 console.log('Wrote:');
-console.log('  standalone/PortfolioTracker-Windows.bat');
-console.log('  standalone/PortfolioTracker-Linux.sh');
+console.log('  standalone/Vaea-Windows.bat');
+console.log('  standalone/Vaea-Linux.sh');

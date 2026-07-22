@@ -1,6 +1,6 @@
-# Portfolio Tracker
+# Vaea
 
-Repo: https://github.com/SheppCrafd/portfolio-tracker
+Repo: https://github.com/SheppCrafd/vaea
 
 A dashboard for managing a portfolio of projects and products across your areas of responsibility — with task tracking, stakeholder visibility, a focus feed, and an AI chat assistant that can act on your data.
 
@@ -17,7 +17,7 @@ This project is built around data locality, which matters if your organization e
 
 ## Overview
 
-Portfolio Tracker is built for someone managing many projects and products across multiple areas of responsibility (e.g. "Work", "Home"). It organizes work into a three-level hierarchy and gives you a single dashboard to see status, risks, and priorities at a glance:
+Vaea is built for someone managing many projects and products across multiple areas of responsibility (e.g. "Work", "Home"). It organizes work into a three-level hierarchy and gives you a single dashboard to see status, risks, and priorities at a glance:
 
 - **Areas of Responsibility** — the broadest grouping (e.g. Work, Home). A single area fills the full dashboard width; add more and they cascade side by side, sharing the row evenly, wrapping to a new row once they no longer fit — so a wide monitor shows more areas at once, not one area stretched thin.
 - **Products** — sit inside an area, optionally connected to related products.
@@ -151,8 +151,8 @@ See the [Base44 CLI docs](https://docs.base44.com/developers/references/cli/get-
 
 `standalone/` generates two **single-file** launchers with the entire built app embedded inside them as base64 — there's no companion folder or sibling file to lose track of, so it's safe to email or move around on its own:
 
-- `PortfolioTracker-Windows.bat` — self-extracts and serves via PowerShell (built into Windows). No Node.js needed.
-- `PortfolioTracker-Linux.sh` — self-extracts and serves via Python 3 (preinstalled on virtually all modern macOS/Linux). No Node.js needed.
+- `Vaea-Windows.bat` — self-extracts and serves via PowerShell (built into Windows). No Node.js needed.
+- `Vaea-Linux.sh` — self-extracts and serves via Python 3 (preinstalled on virtually all modern macOS/Linux). No Node.js needed.
 
 Regenerate them after a source change:
 
@@ -161,11 +161,11 @@ npm run build          # produces dist/
 node standalone/build.cjs   # embeds dist/ into both launchers
 ```
 
-Whoever receives one of the two files just runs it: double-click the `.bat` on Windows, or `./PortfolioTracker-Linux.sh` (or `bash PortfolioTracker-Linux.sh`) on macOS/Linux. Either one starts a tiny local server with SPA-aware routing and opens the app in their default browser automatically, no install step. See `standalone/README.txt` for the exact instructions each one ships with (also printed to anyone who opens the folder instead of running the file).
+Whoever receives one of the two files just runs it: double-click the `.bat` on Windows, or `./Vaea-Linux.sh` (or `bash Vaea-Linux.sh`) on macOS/Linux. Either one starts a tiny local server with SPA-aware routing and opens the app in their default browser automatically, no install step. See `standalone/README.txt` for the exact instructions each one ships with (also printed to anyone who opens the folder instead of running the file).
 
 This is the same app as `npm run dev`, minus the AI chat widget, which needs Base44's hosting for the LLM call itself and can't be bundled into an offline file (the data it acts on, though, is exactly the same local data everything else here uses — see Architecture above). Unlike `npm run dev`, these launchers serve the already-built static `dist/` with no Vite dev server behind them — so there's no `data/` folder here, and data is kept in the browser's `localStorage` instead, same as it always has been (see "Local data storage" above). The two generated launchers (and the transient `standalone/_payload.*` build files) are gitignored — they're build artifacts, regenerate them from source rather than committing them. The editable source for each lives in `standalone/templates/*.tpl`.
 
-**Zero-dependency alternative:** `standalone/exe/` builds native executables (`PortfolioTracker-Windows.exe`, `PortfolioTracker-Linux`) with the Node.js runtime itself embedded via [`pkg`](https://github.com/yao-pkg/pkg) — not even PowerShell/Python are required, at the cost of ~45-50MB per file instead of a few hundred KB. Regenerate with:
+**Zero-dependency alternative:** `standalone/exe/` builds native executables (`Vaea-Windows.exe`, `Vaea-Linux`) with the Node.js runtime itself embedded via [`pkg`](https://github.com/yao-pkg/pkg) — not even PowerShell/Python are required, at the cost of ~45-50MB per file instead of a few hundred KB. Regenerate with:
 
 ```bash
 npm run build              # from the repo root, if not already built
