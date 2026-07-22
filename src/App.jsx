@@ -11,6 +11,7 @@ import ScrollToTop from './components/ScrollToTop';
 import { HighlightProvider } from '@/lib/HighlightContext';
 import { FilterProvider } from '@/lib/FilterContext';
 import { CardViewProvider } from '@/lib/CardViewContext';
+import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
 import Dashboard from '@/pages/Dashboard';
 // /chat and /settings are code-split out of the main bundle — they're
@@ -72,7 +73,9 @@ function App() {
               <CardViewProvider>
                 <Router>
                   <ScrollToTop />
-                  <AuthenticatedApp />
+                  <ErrorBoundary>
+                    <AuthenticatedApp />
+                  </ErrorBoundary>
                 </Router>
                 <Toaster />
               </CardViewProvider>

@@ -94,7 +94,9 @@ export function useShrinkWrapWidth(containerRef, { gap = 0 } = {}) {
     // content changing height/width) — either can change how many fit per
     // row.
     const resizeObserver = new ResizeObserver(recompute);
-    resizeObserver.observe(container.parentElement);
+    if (container.parentElement) {
+      resizeObserver.observe(container.parentElement);
+    }
     Array.from(container.children).forEach((child) => resizeObserver.observe(child));
 
     return () => resizeObserver.disconnect();
