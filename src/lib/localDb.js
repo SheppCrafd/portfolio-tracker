@@ -19,7 +19,7 @@
 
 const COLLECTIONS = ["areas", "products", "projects", "tasks", "stakeholders", "departments", "projectNotes"];
 
-const STORAGE_PREFIX = "portfolio_tracker_db_";
+const STORAGE_PREFIX = "vaea_db_";
 const FILE_API_PREFIX = "/__localdb/";
 
 // A single shared probe, not one per collection — if the dev-server

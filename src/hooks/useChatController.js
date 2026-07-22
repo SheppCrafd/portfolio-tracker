@@ -18,8 +18,8 @@ export const CHAT_ICON_OPTIONS = [
   { key: "smile", Icon: Smile },
 ];
 
-const ICON_STORAGE_KEY = "portfolio_tracker_chat_icon";
-const SESSION_STORAGE_KEY = "portfolio_tracker_chat_active_session";
+const ICON_STORAGE_KEY = "vaea_chat_icon";
+const SESSION_STORAGE_KEY = "vaea_chat_active_session";
 
 // Query keys that can change as a result of an AI-driven mutation — kept
 // broad and invalidated in bulk after any successful action, since chat

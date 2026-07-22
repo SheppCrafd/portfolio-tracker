@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
-const STORAGE_KEY = "portfolio_tracker_chat_geometry";
+const STORAGE_KEY = "vaea_chat_geometry";
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 260;
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from "react";
 
-const STORAGE_KEY = "portfolio_tracker_card_view";
+const STORAGE_KEY = "vaea_card_view";
 
 function loadView() {
   try {

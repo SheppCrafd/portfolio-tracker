@@ -9,8 +9,8 @@ import ArchivePanel from "@/components/archive/ArchivePanel";
 import Avatar from "@/components/shared/Avatar";
 import { useGlobalDragEnd } from "@/hooks/useGlobalDragEnd";
 
-const LEFT_STORAGE_KEY = "portfolio_tracker_left_sidebar_open";
-const RIGHT_STORAGE_KEY = "portfolio_tracker_right_sidebar_open";
+const LEFT_STORAGE_KEY = "vaea_left_sidebar_open";
+const RIGHT_STORAGE_KEY = "vaea_right_sidebar_open";
 
 const loadOpenState = (key) => {
   try {

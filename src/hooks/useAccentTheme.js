@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "portfolio_tracker_accent_theme";
+const STORAGE_KEY = "vaea_accent_theme";
 
 // Curated presets only (not a raw color picker) — each is a single hex used
 // for the picker's swatch preview; the actual applied colors live in the
