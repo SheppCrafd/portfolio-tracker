@@ -5,47 +5,41 @@ import { useAreas } from "@/hooks/useAreas";
 import { useProducts } from "@/hooks/useProducts";
 import { useProjects } from "@/hooks/useProjects";
 import { parseCsv, toCsv } from "@/lib/csv";
-import { CSV_SCHEMAS, buildImportPlan } from "@/lib/csvImportSchemas";
-import { executeAction } from "@/lib/chatActions";
+import { CSV_TEMPLATE_COLUMNS, CSV_TEMPLATE_EXAMPLE_ROWS, buildHierarchyPlan, countActionsByType } from "@/lib/csvImport";
+import { executeActionSequence } from "@/lib/chatActions";
 
-const ENTITY_OPTIONS = [
-  { key: "task", label: "Tasks" },
-  { key: "project", label: "Projects" },
-  { key: "product", label: "Products" },
-  { key: "area", label: "Areas" },
-];
+const LABELS = { area: "area", product: "product", project: "project", task: "task" };
 
-function downloadTemplate(entityType) {
-  const schema = CSV_SCHEMAS[entityType];
-  const csv = toCsv(schema.columns, [schema.example]);
+function downloadTemplate() {
+  const csv = toCsv(CSV_TEMPLATE_COLUMNS, CSV_TEMPLATE_EXAMPLE_ROWS);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `portfolio-tracker-${entityType}-template.csv`;
+  a.download = "portfolio-tracker-import-template.csv";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// Bulk-create tab of the Create New popover: download a template for one
-// entity type, fill it in outside the app, then import the same file back.
-// Runs every row through the exact same BULK_CREATE action the AI chat
-// assistant uses (src/lib/chatActions.js) — one creation/cascade
-// implementation, not a second copy for CSV specifically.
+// Bulk-create tab of the Create New popover: one CSV, any mix of areas/
+// products/projects/tasks in a single file. Each row spells out the full
+// parent path down to whatever it's adding (leave deeper columns blank once
+// you've reached that level) — repeating a title across rows attaches to
+// the same record rather than creating a duplicate. Builds an ordered plan
+// with temp_id chaining and runs it through chatActions.js's
+// executeActionSequence, the exact mechanism the AI chat assistant's own
+// multi-step plans use — one creation implementation, not a second copy.
 export default function CsvImportForm() {
-  const [entityType, setEntityType] = useState("task");
   const [isImporting, setIsImporting] = useState(false);
-  const [result, setResult] = useState(null); // { created, errors }
+  const [result, setResult] = useState(null); // { counts, errors }
   const fileInputRef = useRef(null);
   const queryClient = useQueryClient();
 
   const { data: areas = [] } = useAreas();
   const { data: products = [] } = useProducts();
   const { data: projects = [] } = useProjects();
-
-  const schema = CSV_SCHEMAS[entityType];
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -57,41 +51,31 @@ export default function CsvImportForm() {
     try {
       const text = await file.text();
       const { records } = parseCsv(text);
-      const { items, errors } = buildImportPlan(entityType, records, { areas, products, projects });
-      if (items.length) {
-        await executeAction("BULK_CREATE", { entity_type: entityType, items });
+      const { actions, errors } = buildHierarchyPlan(records, { areas, products, projects });
+      if (actions.length) {
+        await executeActionSequence(actions);
         ["areas", "products", "projects", "tasks"].forEach((key) =>
           queryClient.invalidateQueries({ queryKey: [key] })
         );
       }
-      setResult({ created: items.length, errors });
+      setResult({ counts: countActionsByType(actions), errors });
     } catch (error) {
-      setResult({ created: 0, errors: [{ row: "-", error: error.message || "Couldn't read that file." }] });
+      setResult({ counts: { area: 0, product: 0, project: 0, task: 0 }, errors: [{ row: "-", error: error.message || "Couldn't read that file." }] });
     } finally {
       setIsImporting(false);
     }
   };
 
+  const totalCreated = result ? Object.values(result.counts).reduce((a, b) => a + b, 0) : 0;
+
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium block mb-1">What are you importing?</label>
-        <select
-          value={entityType}
-          onChange={(e) => { setEntityType(e.target.value); setResult(null); }}
-          className="w-full text-sm px-3 py-2 bg-background border border-input rounded-md"
-        >
-          {ENTITY_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-        </select>
-      </div>
-
       <p className="text-xs text-muted-foreground">
-        Download the template below, add a row per {schema.label.toLowerCase()}, then import that same file.
-        {schema.columns.includes("area") && " Reference an existing area/product/project by its exact title — not an internal id."}
+        One file covers everything — each row can describe an area, a product inside it, a project inside that, and a task inside that. Leave a column blank once you've reached the level you're adding; repeat the same title on another row to attach more to it instead of creating a duplicate.
       </p>
 
-      <Button type="button" variant="outline" className="w-full" onClick={() => downloadTemplate(entityType)}>
-        Download {schema.label} Template
+      <Button type="button" variant="outline" className="w-full" onClick={downloadTemplate}>
+        Download Template
       </Button>
 
       <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleFile} className="hidden" />
@@ -102,7 +86,12 @@ export default function CsvImportForm() {
       {result && (
         <div className="text-xs rounded-md border border-border p-3 space-y-1 max-h-40 overflow-y-auto">
           <p className="font-medium">
-            {result.created} {schema.label.toLowerCase()}{result.created === 1 ? "" : "s"} created.
+            {totalCreated === 0
+              ? "Nothing created."
+              : Object.entries(result.counts)
+                  .filter(([, count]) => count > 0)
+                  .map(([key, count]) => `${count} ${LABELS[key]}${count === 1 ? "" : "s"}`)
+                  .join(", ") + " created."}
           </p>
           {result.errors.length > 0 && (
             <>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv, toCsv } from "./csv.js";
-import { buildImportPlan } from "./csvImportSchemas.js";
+import { buildHierarchyPlan, countActionsByType } from "./csvImport.js";
 
 describe("parseCsv", () => {
   it("parses a simple header + data rows", () => {
@@ -66,102 +66,136 @@ describe("toCsv", () => {
   });
 });
 
-describe("buildImportPlan", () => {
-  const areas = [{ id: "area1", title: "Home" }, { id: "area2", title: "Work" }];
-  const products = [{ id: "prod1", title: "Renovation", parent_area_id: "area1" }];
-  const projects = [
-    { id: "proj1", title: "Kitchen remodel", parent_area_id: "area1", parent_product_id: "prod1" },
-    { id: "proj2", title: "Duplicate Name", parent_area_id: "area1", parent_product_id: null },
-    { id: "proj3", title: "Duplicate Name", parent_area_id: "area2", parent_product_id: null },
-  ];
-  const ctx = { areas, products, projects };
+describe("buildHierarchyPlan", () => {
+  const emptyCtx = { areas: [], products: [], projects: [] };
 
-  it("area: builds args from a valid row", () => {
-    const { items, errors } = buildImportPlan("area", [{ title: "New Area", description: "desc" }], ctx);
+  const row = (overrides) => ({
+    area_title: "", area_description: "",
+    product_title: "", product_description: "",
+    project_title: "", project_description: "",
+    task_description: "",
+    ...overrides,
+  });
+
+  it("a single row with only area columns creates just the area", () => {
+    const { actions, errors } = buildHierarchyPlan(
+      [row({ area_title: "Home", area_description: "Personal stuff" })],
+      emptyCtx
+    );
     expect(errors).toEqual([]);
-    expect(items).toEqual([{ title: "New Area", description: "desc" }]);
+    expect(actions).toEqual([
+      { action: "CREATE_AREA", args: { title: "Home", description: "Personal stuff" }, temp_id: "imp_area_0" },
+    ]);
   });
 
-  it("area: reports a missing required field with its row number", () => {
-    const { items, errors } = buildImportPlan("area", [{ title: "", description: "x" }], ctx);
-    expect(items).toEqual([]);
-    expect(errors).toEqual([{ row: 2, error: "title is required" }]);
-  });
-
-  it("product: resolves an area title to its id", () => {
-    const { items, errors } = buildImportPlan("product", [{ title: "New Product", area: "Home", description: "" }], ctx);
+  it("builds a full area -> product -> project -> task chain from one row, with temp_id references", () => {
+    const { actions, errors } = buildHierarchyPlan(
+      [row({ area_title: "Home", product_title: "Renovation", project_title: "Kitchen remodel", task_description: "Book contractor" })],
+      emptyCtx
+    );
     expect(errors).toEqual([]);
-    expect(items[0].parent_area_id).toBe("area1");
+    expect(actions).toHaveLength(4);
+    const [area, product, project, task] = actions;
+    expect(area).toMatchObject({ action: "CREATE_AREA", temp_id: "imp_area_0" });
+    expect(product).toMatchObject({ action: "CREATE_PRODUCT", args: { parent_area_id: "$imp_area_0", title: "Renovation" } });
+    expect(project).toMatchObject({ action: "CREATE_PROJECT", args: { parent_area_id: "$imp_area_0", parent_product_id: `$${product.temp_id}`, title: "Kitchen remodel" } });
+    expect(task).toEqual({ action: "CREATE_TASK", args: { project_id: `$${project.temp_id}`, description: "Book contractor" } });
   });
 
-  it("product: fails when the referenced area doesn't exist", () => {
-    const { items, errors } = buildImportPlan("product", [{ title: "X", area: "Nonexistent", description: "" }], ctx);
-    expect(items).toEqual([]);
-    expect(errors[0].error).toMatch(/no area found/);
+  it("reuses the same area across rows instead of creating it twice", () => {
+    const { actions } = buildHierarchyPlan(
+      [
+        row({ area_title: "Home", area_description: "First" }),
+        row({ area_title: "home", product_title: "Renovation" }), // case-insensitive reuse
+      ],
+      emptyCtx
+    );
+    const areaCreates = actions.filter((a) => a.action === "CREATE_AREA");
+    expect(areaCreates).toHaveLength(1);
+    const product = actions.find((a) => a.action === "CREATE_PRODUCT");
+    expect(product.args.parent_area_id).toBe("$imp_area_0");
   });
 
-  it("project: resolves both area and product titles", () => {
-    const { items, errors } = buildImportPlan(
-      "project",
-      [{ title: "New Project", area: "Home", product: "Renovation", due_date_status: "committed" }],
+  it("a project can attach directly to an area with no product", () => {
+    const { actions, errors } = buildHierarchyPlan(
+      [row({ area_title: "Home", project_title: "Standalone project" })],
+      emptyCtx
+    );
+    expect(errors).toEqual([]);
+    const project = actions.find((a) => a.action === "CREATE_PROJECT");
+    expect(project.args.parent_product_id).toBeNull();
+  });
+
+  it("reuses an already-existing (live) area/product instead of recreating it", () => {
+    const ctx = {
+      areas: [{ id: "area1", title: "Home" }],
+      products: [{ id: "prod1", title: "Renovation", parent_area_id: "area1" }],
+      projects: [],
+    };
+    const { actions, errors } = buildHierarchyPlan(
+      [row({ area_title: "Home", product_title: "Renovation", project_title: "New Project" })],
       ctx
     );
     expect(errors).toEqual([]);
-    expect(items[0]).toMatchObject({ parent_area_id: "area1", parent_product_id: "prod1", due_date_status: "COMMITTED" });
+    expect(actions.filter((a) => a.action === "CREATE_AREA")).toHaveLength(0);
+    expect(actions.filter((a) => a.action === "CREATE_PRODUCT")).toHaveLength(0);
+    const project = actions.find((a) => a.action === "CREATE_PROJECT");
+    expect(project.args).toMatchObject({ parent_area_id: "area1", parent_product_id: "prod1" });
   });
 
-  it("project: rejects an invalid due_date_status", () => {
-    const { errors } = buildImportPlan("project", [{ title: "X", area: "Home", due_date_status: "SOMEDAY" }], ctx);
-    expect(errors[0].error).toMatch(/due_date_status must be/);
+  it("errors when a row fills in a column but leaves area_title blank", () => {
+    const { actions, errors } = buildHierarchyPlan([row({ product_title: "X" })], emptyCtx);
+    expect(actions).toEqual([]);
+    expect(errors).toEqual([{ row: 2, error: "area_title is required on any row that fills in another column" }]);
   });
 
-  it("task: resolves an unambiguous project title directly", () => {
-    const { items, errors } = buildImportPlan("task", [{ description: "Do it", project: "Kitchen remodel" }], ctx);
+  it("errors when task_description is set but project_title is blank", () => {
+    const { actions, errors } = buildHierarchyPlan([row({ area_title: "Home", task_description: "Do it" })], emptyCtx);
+    expect(actions.filter((a) => a.action === "CREATE_TASK")).toEqual([]);
+    expect(errors).toEqual([{ row: 2, error: "project_title is required when task_description is filled in" }]);
+  });
+
+  it("errors when an area title already matches more than one existing area", () => {
+    const ctx = { areas: [{ id: "a1", title: "Home" }, { id: "a2", title: "Home" }], products: [], projects: [] };
+    const { errors } = buildHierarchyPlan([row({ area_title: "Home" })], ctx);
+    expect(errors[0].error).toMatch(/multiple existing areas/);
+  });
+
+  it("a fully blank row is skipped silently, not reported as an error", () => {
+    const { actions, errors } = buildHierarchyPlan([row({}), row({ area_title: "Home" })], emptyCtx);
     expect(errors).toEqual([]);
-    expect(items[0].project_id).toBe("proj1");
+    expect(actions).toHaveLength(1);
   });
 
-  it("task: fails on an ambiguous project title with no disambiguating column", () => {
-    const { items, errors } = buildImportPlan("task", [{ description: "Do it", project: "Duplicate Name" }], ctx);
-    expect(items).toEqual([]);
-    expect(errors[0].error).toMatch(/multiple projects match/);
-  });
-
-  it("task: an area column disambiguates a duplicate project title", () => {
-    const { items, errors } = buildImportPlan(
-      "task",
-      [{ description: "Do it", project: "Duplicate Name", area: "Work" }],
-      ctx
+  it("a failed row does not block a later, independent row from succeeding", () => {
+    const { actions, errors } = buildHierarchyPlan(
+      [row({ product_title: "orphan, no area" }), row({ area_title: "Home" })],
+      emptyCtx
     );
-    expect(errors).toEqual([]);
-    expect(items[0].project_id).toBe("proj3");
+    expect(errors).toHaveLength(1);
+    expect(actions).toEqual([{ action: "CREATE_AREA", args: { title: "Home", description: "" }, temp_id: "imp_area_0" }]);
   });
 
-  it("task: defaults quadrant/type/status and parses boolean-ish flags", () => {
-    const { items, errors } = buildImportPlan(
-      "task",
-      [{ description: "Do it", project: "Kitchen remodel", is_highly_important: "yes", is_quick_task: "no" }],
-      ctx
+  it("two different projects with the same title under different areas stay distinct", () => {
+    const { actions } = buildHierarchyPlan(
+      [
+        row({ area_title: "Home", project_title: "Setup" }),
+        row({ area_title: "Work", project_title: "Setup" }),
+      ],
+      emptyCtx
     );
-    expect(errors).toEqual([]);
-    expect(items[0]).toMatchObject({
-      quadrant: null, type: "OTHER", status: "NOT_STARTED",
-      is_highly_important: true, is_quick_task: false, is_weekly_focus: false,
-    });
+    const projectCreates = actions.filter((a) => a.action === "CREATE_PROJECT");
+    expect(projectCreates).toHaveLength(2);
+    expect(projectCreates[0].args.parent_area_id).not.toBe(projectCreates[1].args.parent_area_id);
   });
+});
 
-  it("task: rejects an out-of-range quadrant", () => {
-    const { errors } = buildImportPlan("task", [{ description: "x", project: "Kitchen remodel", quadrant: "9" }], ctx);
-    expect(errors[0].error).toMatch(/quadrant must be 1-4/);
-  });
-
-  it("processes multiple rows independently, collecting errors per-row without stopping", () => {
-    const { items, errors } = buildImportPlan(
-      "area",
-      [{ title: "Good" }, { title: "" }, { title: "AlsoGood" }],
-      ctx
-    );
-    expect(items).toHaveLength(2);
-    expect(errors).toEqual([{ row: 3, error: "title is required" }]);
+describe("countActionsByType", () => {
+  it("tallies each action type, including zero counts", () => {
+    const actions = [
+      { action: "CREATE_AREA" }, { action: "CREATE_PRODUCT" },
+      { action: "CREATE_PROJECT" }, { action: "CREATE_PROJECT" }, { action: "CREATE_TASK" },
+    ];
+    expect(countActionsByType(actions)).toEqual({ area: 1, product: 1, project: 2, task: 1 });
   });
 });
