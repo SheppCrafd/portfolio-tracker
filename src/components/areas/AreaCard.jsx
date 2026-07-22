@@ -101,7 +101,15 @@ export default function AreaCard({ area, products = [], orphanProjects = [], onE
       </div>
 
       {products.length > 0 && (
-        <div className="mt-2 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] items-start gap-4">
+        <div
+          className="mt-2 grid items-start gap-4"
+          // Full Cards' project card is a fixed 420px, and a Product needs
+          // room for at least one without clipping it (420 + this card's
+          // own p-4 padding ≈ 452px) — a 240px floor (fine for Mini Cards'
+          // small tiles) can hand a Product a column too narrow for that in
+          // Full mode, and the card's overflow-hidden clips the rest.
+          style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${cardView === "full" ? 460 : 240}px, 1fr))` }}
+        >
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}

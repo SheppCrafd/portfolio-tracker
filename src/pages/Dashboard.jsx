@@ -121,7 +121,16 @@ export default function Dashboard() {
           <p className="text-sm">No areas found. Click "Create New" to add your first Area of Responsibility.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start gap-5">
+        <div
+          className="grid items-start gap-5"
+          // Full Cards' project card is a fixed 420px — an Area needs enough
+          // room for at least one Product wide enough to hold that without
+          // clipping (see AreaCard's own products-grid comment), or the
+          // grid can hand an Area a column narrower than its own content
+          // needs. Mini Cards' tiles are much smaller, so 340px is plenty
+          // there — this floor only needs to grow for Full mode.
+          style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${cardView === "full" ? 500 : 340}px, 1fr))` }}
+        >
           {areaViewModels.map(({ area, productsWithProjects, orphanProjects, areaStakeholderIds }) => (
             <AreaCard
               key={area.id}
