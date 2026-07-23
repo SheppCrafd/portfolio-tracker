@@ -12,6 +12,12 @@
 // request just so the LLM can see it, and nothing is written back to Base44;
 // every actual create/update/delete happens here, against localDb.
 import { localDb } from "@/lib/localDb";
+import { toCsv } from "@/lib/csv";
+import { CARD_VIEW_STORAGE_KEY, CARD_VIEW_CHANGE_EVENT } from "@/lib/cardViewConstants";
+import { loadAiIdentity, saveAiIdentity } from "@/lib/aiPreferences";
+import { createSnapshot } from "@/lib/backupSnapshots";
+import { loadVaultConnection, isVaultConnected } from "@/lib/vaultConnection";
+import { writeVaultFile } from "@/lib/githubApi";
 import { createArea, updateArea, deleteArea } from "@/hooks/useAreas";
 import { createProduct, updateProduct, deleteProduct } from "@/hooks/useProducts";
 import { createProject, updateProject, archiveProject, restoreProject, deleteProject } from "@/hooks/useProjects";
@@ -32,7 +38,11 @@ export const DESTRUCTIVE_ACTIONS = new Set([
   "BULK_DELETE",
 ]);
 
-export const NON_EXECUTABLE_ACTIONS = new Set(["CHAT_ONLY", "UNKNOWN", "UNDO_LAST_ACTION"]);
+// UNDO_LAST_ACTION is a real tool the assistant can call, but it's handled
+// specially by useChatController.js's runUndo() rather than routed through
+// executeAction below — it never appears alongside other actions in a plan
+// (the server prompt requires it to be the only tool call in a turn).
+export const NON_EXECUTABLE_ACTIONS = new Set(["UNDO_LAST_ACTION"]);
 
 const BULK_CREATE_ACTION_BY_TYPE = {
   area: "CREATE_AREA",
@@ -172,6 +182,12 @@ export async function executeAction(action, args) {
       const task = await updateTask({ id: args.task_id, data: { status: args.status } });
       return { toolResult: { task, previousStatus: previous?.status, undo: { type: "UPDATE_TASK_STATUS", task_id: args.task_id, status: previous?.status } } };
     }
+    case "BULK_UPDATE_TASK_STATUS": {
+      const { task_ids, status } = args;
+      const tasks = [];
+      for (const task_id of task_ids) tasks.push(await updateTask({ id: task_id, data: { status } }));
+      return { toolResult: { tasks, count: tasks.length } };
+    }
     case "TOGGLE_WEEKLY_FOCUS": {
       const previous = await localDb.tasks.get(args.task_id);
       const task = await updateTask({ id: args.task_id, data: { is_weekly_focus: !previous?.is_weekly_focus } });
@@ -277,9 +293,76 @@ export async function executeAction(action, args) {
       return { toolResult: { entity_type, count: ids.length } };
     }
 
+    case "EXPORT_CSV": {
+      const listers = {
+        area: () => localDb.areas.list(),
+        product: () => localDb.products.list(),
+        project: () => localDb.projects.list(),
+        task: () => localDb.tasks.list(),
+        stakeholder: () => localDb.stakeholders.list(),
+        department: () => localDb.departments.list(),
+        note: () => localDb.projectNotes.list(),
+      };
+      const lister = listers[args.entity_type];
+      if (!lister) throw new Error(`Unknown entity_type "${args.entity_type}" for EXPORT_CSV`);
+      const records = await lister();
+      downloadCsv(args.entity_type, records);
+      return { toolResult: { entity_type: args.entity_type, count: records.length } };
+    }
+
+    case "SET_AI_IDENTITY": {
+      const current = loadAiIdentity();
+      const updated = { ...current, ...args };
+      saveAiIdentity(updated);
+      return { toolResult: { identity: updated } };
+    }
+
+    case "WRITE_VAULT_NOTE": {
+      const connection = loadVaultConnection();
+      if (!isVaultConnected(connection)) throw new Error("No external vault connected — set one up in Settings.");
+      const result = await writeVaultFile({
+        owner: connection.owner,
+        repo: connection.repo,
+        branch: connection.branch || "main",
+        token: connection.token,
+        path: args.path,
+        content: args.content,
+        commitMessage: args.commit_message,
+      });
+      return { toolResult: { vaultNote: result } };
+    }
+
+    case "SET_CARD_VIEW": {
+      const { view } = args;
+      if (view !== "mini" && view !== "full") throw new Error('view must be "mini" or "full"');
+      try {
+        localStorage.setItem(CARD_VIEW_STORAGE_KEY, view);
+      } catch {
+        // best-effort — the choice just won't survive a reload
+      }
+      window.dispatchEvent(new CustomEvent(CARD_VIEW_CHANGE_EVENT, { detail: view }));
+      return { toolResult: { view } };
+    }
+
     default:
       throw new Error(`Unknown action "${action}"`);
   }
+}
+
+// Serializes records to CSV and triggers a browser download — no server
+// round-trip, matching every other chat action's local-only execution.
+function downloadCsv(entityType, records) {
+  const headers = records.length ? Object.keys(records[0]) : [];
+  const csvText = toCsv(headers, records);
+  const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `vaea_${entityType}_export_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Resolves "$temp_id" placeholders against ids captured from earlier steps in
@@ -297,9 +380,22 @@ function resolvePlaceholders(value, tempIdMap) {
   return value;
 }
 
+// A plan risky enough to snapshot before running: more than one step (a
+// multi-step AI plan or a CSV bulk-import — both go through this same
+// function), or any single step that creates/deletes in bulk. A lone
+// UPDATE_TASK_STATUS-style action already has its own per-action undo via
+// actionHistory (useChatController.js) and doesn't need a full snapshot.
+function planNeedsSnapshot(actions) {
+  return actions.length > 1 || actions.some((a) => a.action === "BULK_CREATE" || DESTRUCTIVE_ACTIONS.has(a.action));
+}
+
 // Runs a plan's actions in order (not in parallel — later steps may depend
 // on ids captured from earlier ones via temp_id/$placeholder).
 export async function executeActionSequence(actions) {
+  if (planNeedsSnapshot(actions)) {
+    await createSnapshot(`Before ${actions.length > 1 ? `${actions.length}-step plan` : actions[0].action}`);
+  }
+
   const tempIdMap = {};
   const steps = [];
   for (const step of actions) {

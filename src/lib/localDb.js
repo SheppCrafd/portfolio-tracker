@@ -168,6 +168,14 @@ function createCollection(name) {
       await writeCollection(name, items.filter((item) => item.id !== id));
       return { id };
     },
+    // Overwrites the entire collection with exactly the given items, no
+    // per-item merge/timestamp logic — for restoring a prior snapshot
+    // (backupSnapshots.js), where the point is putting the data back exactly
+    // as it was, not running it back through create/update semantics.
+    replaceAll: async (items) => {
+      await writeCollection(name, items);
+      return items;
+    },
     subscribe: (fn) => subscribe(name, fn),
   };
 }

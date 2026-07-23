@@ -4,6 +4,8 @@ import { MessageCircle, Bot, Sparkles, HelpCircle, Smile } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { localDb } from "@/lib/localDb";
 import { executeAction, executeActionSequence, DESTRUCTIVE_ACTIONS, NON_EXECUTABLE_ACTIONS } from "@/lib/chatActions";
+import { loadAiIdentity } from "@/lib/aiPreferences";
+import { loadVaultConnection } from "@/lib/vaultConnection";
 import { usePositionedMenu } from "@/hooks/usePositionedMenu";
 import { useCreateChatSession } from "@/hooks/useChatSessions";
 import { useChatMessages, useCreateChatMessage, useUpdateChatMessage } from "@/hooks/useChatMessages";
@@ -87,6 +89,7 @@ export function useChatController({ activeProjectId } = {}) {
   const [resolvingId, setResolvingId] = useState(null);
   const [actionHistory, setActionHistory] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(() => readStorage(SESSION_STORAGE_KEY));
+  const [aiIdentity, setAiIdentity] = useState(loadAiIdentity);
 
   const fileInputRef = useRef(null);
   const queryClient = useQueryClient();
@@ -99,6 +102,10 @@ export function useChatController({ activeProjectId } = {}) {
 
   const invalidateAppQueries = () => {
     APP_QUERY_KEYS.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+    // SET_AI_IDENTITY writes straight to localStorage (chatActions.js), same
+    // as every other action — re-read it so the header's displayed name
+    // updates immediately after "/setup" runs, not just on next reload.
+    setAiIdentity(loadAiIdentity());
   };
 
   const chooseIcon = (choice) => {
@@ -166,6 +173,11 @@ export function useChatController({ activeProjectId } = {}) {
       // axios envelope, so the actual `{reply, actions}` is response.data.
       const response = await base44.functions.invoke("aiChatStream", {
         ...payload,
+        aiIdentity: loadAiIdentity(),
+        // Sent transiently, per-request, so the vault_* tools can use it for
+        // this one turn — never stored server-side, same guarantee as the
+        // rest of this payload (see ExternalVaultSection.jsx's disclosure).
+        externalVault: loadVaultConnection(),
         areas: areas.filter((a) => !a.deleted_at),
         products: products.filter((p) => !p.deleted_at),
         projects: projectsActive,
@@ -298,6 +310,7 @@ export function useChatController({ activeProjectId } = {}) {
   return {
     input, setInput,
     isComputing,
+    aiIdentity,
     attachedFile, setAttachedFile,
     isUploadingAttachment,
     iconChoice, chooseIcon,

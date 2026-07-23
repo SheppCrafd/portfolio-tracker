@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Paperclip, PanelLeftClose, PanelLeft, Info } from "lucide-react";
+import { ArrowLeft, Plus, Paperclip, PanelLeftClose, PanelLeft, Info, Settings } from "lucide-react";
 import { useRef, useState } from "react";
 import { useChatController } from "@/hooks/useChatController";
 import { useChatSessions } from "@/hooks/useChatSessions";
@@ -9,6 +9,7 @@ import ChatIconPicker from "@/components/ai/ChatIconPicker";
 import ChatMessageList from "@/components/ai/ChatMessageList";
 import ChatSessionRow from "@/components/ai/ChatSessionRow";
 import ChatCommandMenu from "@/components/ai/ChatCommandMenu";
+import ChatSettingsModal from "@/components/ai/ChatSettingsModal";
 
 // Full-page chat — a dedicated /chat route (outside the dashboard's AppShell
 // chrome entirely) laid out like a standalone chat app: a persistent session
@@ -18,6 +19,7 @@ import ChatCommandMenu from "@/components/ai/ChatCommandMenu";
 // ChatBox widget, so switching between the two never loses a session.
 export default function ChatPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const chat = useChatController({});
   const { data: sessions = [] } = useChatSessions();
   const messageInputRef = useRef(null);
@@ -88,14 +90,22 @@ export default function ChatPage() {
             aria-label="Choose chat icon"
           >
             <ChatIcon iconChoice={chat.iconChoice} className="w-5 h-5" />
-            <span className="font-heading font-semibold text-sm">PM Copilot</span>
+            <span className="font-heading font-semibold text-sm">{chat.aiIdentity.name || "PM Copilot"}</span>
           </button>
           <Info
             className="w-4 h-4 text-muted-foreground cursor-help ml-auto"
             aria-label="Privacy notice"
           >
-            <title>Everything else in this app stays on your device. Chat is the one exception: your current data is sent to an AI service to answer you, only for that one exchange — nothing is stored on a server.</title>
+            <title>Everything else in this app stays on your device. Chat is the one exception: your current data is sent to an AI service to answer you, only for that one exchange — nothing is stored on a server. If you ask it to, chat can also search the web or read an attached file's contents — same one-exchange rule, nothing persists.</title>
           </Info>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="Chat settings"
+            title="Chat settings"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col max-w-3xl w-full mx-auto">
@@ -134,7 +144,7 @@ export default function ChatPage() {
               value={chat.input}
               onChange={(e) => chat.setInput(e.target.value)}
               onKeyDown={slashCommand.handleKeyDown}
-              placeholder="Message PM Copilot..."
+              placeholder={`Message ${chat.aiIdentity.name || "PM Copilot"}...`}
               className="flex-1 text-sm px-4 py-3 bg-card border border-input rounded-xl outline-none focus:ring-1 focus:ring-primary/50 transition-all"
               disabled={chat.isComputing}
               autoComplete="off"
@@ -161,6 +171,8 @@ export default function ChatPage() {
       </div>
 
       <ChatIconPicker iconPicker={chat.iconPicker} iconChoice={chat.iconChoice} chooseIcon={chat.chooseIcon} />
+
+      {isSettingsOpen && <ChatSettingsModal onClose={() => setIsSettingsOpen(false)} />}
     </div>
   );
 }

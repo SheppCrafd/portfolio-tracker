@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Plus, ChevronLeft, Paperclip, Maximize2, Info } from "lucide-react";
+import { X, Plus, ChevronLeft, Paperclip, Maximize2, Info, Settings } from "lucide-react";
 import { useChatController } from "@/hooks/useChatController";
 import { useWindowGeometry } from "@/hooks/useWindowGeometry";
 import { useSlashCommand } from "@/hooks/useSlashCommand";
@@ -10,6 +10,7 @@ import ChatMessageList from "@/components/ai/ChatMessageList";
 import ChatSessionList from "@/components/ai/ChatSessionList";
 import ChatResizeHandles from "@/components/ai/ChatResizeHandles";
 import ChatCommandMenu from "@/components/ai/ChatCommandMenu";
+import ChatSettingsModal from "@/components/ai/ChatSettingsModal";
 
 // Floating quick-access chat widget. All the actual chat behavior (sessions,
 // sending, confirm/undo, icon persistence, attachments) lives in
@@ -20,6 +21,7 @@ import ChatCommandMenu from "@/components/ai/ChatCommandMenu";
 export default function ChatBox({ activeProjectId }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSessionListOpen, setIsSessionListOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const containerRef = useRef(null);
   const messageInputRef = useRef(null);
   const navigate = useNavigate();
@@ -80,7 +82,7 @@ export default function ChatBox({ activeProjectId }) {
                 aria-label="Choose chat icon"
               >
                 <ChatIcon iconChoice={chat.iconChoice} className="w-5 h-5" />
-                <span className="font-semibold text-sm">PM Copilot</span>
+                <span className="font-semibold text-sm">{chat.aiIdentity.name || "PM Copilot"}</span>
               </button>
               <button
                 onClick={() => setIsSessionListOpen((v) => !v)}
@@ -95,8 +97,16 @@ export default function ChatBox({ activeProjectId }) {
                 className="w-3.5 h-3.5 text-primary-foreground/70 cursor-help"
                 aria-label="Privacy notice"
               >
-                <title>Everything else in this app stays on your device. Chat is the one exception: your current data is sent to an AI service to answer you, only for that one exchange — nothing is stored on a server.</title>
+                <title>Everything else in this app stays on your device. Chat is the one exception: your current data is sent to an AI service to answer you, only for that one exchange — nothing is stored on a server. If you ask it to, chat can also search the web or read an attached file's contents — same one-exchange rule, nothing persists.</title>
               </Info>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                aria-label="Chat settings"
+                title="Chat settings"
+                className="text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={() => navigate("/chat")}
                 aria-label="Expand to full page"
@@ -176,6 +186,8 @@ export default function ChatBox({ activeProjectId }) {
       )}
 
       <ChatIconPicker iconPicker={chat.iconPicker} iconChoice={chat.iconChoice} chooseIcon={chat.chooseIcon} />
+
+      {isSettingsOpen && <ChatSettingsModal onClose={() => setIsSettingsOpen(false)} />}
 
       {isSessionListOpen && (
         <ChatSessionList

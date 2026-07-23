@@ -2,6 +2,10 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import AccountSection from "@/components/settings/AccountSection";
 import AppearanceSection from "@/components/settings/AppearanceSection";
+import AiPreferencesSection from "@/components/settings/AiPreferencesSection";
+import BackupRestoreSection from "@/components/settings/BackupRestoreSection";
+import ExternalVaultSection from "@/components/settings/ExternalVaultSection";
+import ResourcesSection from "@/components/settings/ResourcesSection";
 
 // A standalone /settings route (outside AppShell's three-column dashboard
 // chrome, same treatment ChatPage already gets) — no sidebars/hamburgers
@@ -22,6 +26,10 @@ export default function SettingsPage() {
       <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-6">
         <AccountSection />
         <AppearanceSection />
+        <AiPreferencesSection />
+        <BackupRestoreSection />
+        <ExternalVaultSection />
+        <ResourcesSection />
       </div>
     </div>
   );

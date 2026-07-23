@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Minimal in-memory localStorage shim — Vitest's "node" environment has no
 // browser storage globals, and localDb.js talks to localStorage directly.
@@ -111,5 +111,33 @@ describe("chatActions: destructive-action classification", () => {
     expect(DESTRUCTIVE_ACTIONS.has("CREATE_TASK")).toBe(false);
     expect(DESTRUCTIVE_ACTIONS.has("UPDATE_PROJECT")).toBe(false);
     expect(DESTRUCTIVE_ACTIONS.has("ARCHIVE_PROJECT")).toBe(false);
+  });
+
+  it("does not flag WRITE_VAULT_NOTE as destructive — git provides its own undo", () => {
+    expect(DESTRUCTIVE_ACTIONS.has("WRITE_VAULT_NOTE")).toBe(false);
+  });
+});
+
+describe("chatActions: WRITE_VAULT_NOTE", () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn();
+  });
+
+  it("throws without ever calling fetch when no vault is connected", async () => {
+    await expect(executeAction("WRITE_VAULT_NOTE", { path: "Daily/2026-07-22.md", content: "x" })).rejects.toThrow(/no external vault connected/i);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("writes to the connected repo using the stored token", async () => {
+    globalThis.localStorage.setItem("vaea_external_vault", JSON.stringify({ owner: "me", repo: "vault", branch: "main", token: "t" }));
+    globalThis.fetch
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ content: { sha: "abc" }, commit: { html_url: "https://github.com/me/vault/commit/abc" } }) });
+
+    const { toolResult } = await executeAction("WRITE_VAULT_NOTE", { path: "Daily/2026-07-22.md", content: "# Today\nDid stuff." });
+
+    expect(toolResult.vaultNote.path).toBe("Daily/2026-07-22.md");
+    expect(toolResult.vaultNote.commitUrl).toBe("https://github.com/me/vault/commit/abc");
+    globalThis.localStorage.removeItem("vaea_external_vault");
   });
 });

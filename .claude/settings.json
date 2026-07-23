@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -File \"C:\\Users\\mwall\\vaea\\.claude\\hooks\\load-vaea-context.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

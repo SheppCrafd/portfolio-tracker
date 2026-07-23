@@ -1,10 +1,9 @@
-import { createContext, useContext, useState } from "react";
-
-const STORAGE_KEY = "vaea_card_view";
+import { createContext, useContext, useEffect, useState } from "react";
+import { CARD_VIEW_STORAGE_KEY, CARD_VIEW_CHANGE_EVENT } from "@/lib/cardViewConstants";
 
 function loadView() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(CARD_VIEW_STORAGE_KEY);
     return stored === "full" ? "full" : "mini";
   } catch {
     return "mini";
@@ -24,11 +23,21 @@ export function CardViewProvider({ children }) {
   const setCardView = (view) => {
     setCardViewState(view);
     try {
-      localStorage.setItem(STORAGE_KEY, view);
+      localStorage.setItem(CARD_VIEW_STORAGE_KEY, view);
     } catch {
       // best-effort — the choice just won't survive a reload
     }
   };
+
+  useEffect(() => {
+    // Fired whenever something outside this Provider's own setCardView
+    // changes the stored view (the AI chat's SET_CARD_VIEW action, run from
+    // a plain module with no access to this context) so already-mounted
+    // instances stay in sync without needing a reload.
+    const onExternalChange = (e) => setCardViewState(e.detail);
+    window.addEventListener(CARD_VIEW_CHANGE_EVENT, onExternalChange);
+    return () => window.removeEventListener(CARD_VIEW_CHANGE_EVENT, onExternalChange);
+  }, []);
 
   return <CardViewContext.Provider value={{ cardView, setCardView }}>{children}</CardViewContext.Provider>;
 }

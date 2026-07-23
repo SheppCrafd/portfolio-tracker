@@ -14,5 +14,9 @@ export const CHAT_COMMANDS = [
   { name: "status", description: "Change a task's status" },
   { name: "top3", description: "Mark a task as one of today's top 3" },
   { name: "focus", description: "Mark a task as this week's focus" },
+  { name: "tidy", description: "Audit the workspace for hygiene issues and propose fixes" },
+  { name: "setup", description: "Let the assistant interview you and set its own name/identity/soul" },
+  { name: "vault-log", description: "Log this session to your connected external vault" },
+  { name: "vault-tidy", description: "Audit your connected vault's wikilinks and propose fixes" },
   { name: "help", description: "List all available slash commands" },
 ];
