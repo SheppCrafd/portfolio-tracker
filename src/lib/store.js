@@ -7,4 +7,9 @@ export const useAppStore = create((set) => ({
   createModalType: "task", // "task" | "project"
   openCreateModal: (type = "task") => set({ isCreateModalOpen: true, createModalType: type }),
   closeCreateModal: () => set({ isCreateModalOpen: false }),
+
+  isCommandPaletteOpen: false,
+  openCommandPalette: () => set({ isCommandPaletteOpen: true }),
+  closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
+  toggleCommandPalette: () => set((s) => ({ isCommandPaletteOpen: !s.isCommandPaletteOpen })),
 }));

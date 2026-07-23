@@ -10,6 +10,8 @@ import AreaModal from "@/components/areas/AreaModal";
 import CreateModal from "@/components/modals/CreateModal";
 import ProductConnectionLines from "@/components/products/ProductConnectionLines";
 import QueryError from "@/components/shared/QueryError";
+import ProductDetailModal from "@/components/products/ProductDetailModal";
+import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
 
 export default function Dashboard() {
   const { data: areas = [], isLoading: areasLoading, isError: areasError, error: areasErrorObj, refetch: refetchAreas } = useAreas();
@@ -19,14 +21,32 @@ export default function Dashboard() {
   const { cardView, setCardView } = useCardView();
   const [searchParams, setSearchParams] = useSearchParams();
   const [expandedArea, setExpandedArea] = useState(null);
+  const [expandedProduct, setExpandedProduct] = useState(null);
+  const [expandedProject, setExpandedProject] = useState(null);
 
+  // Three independent deep-link params (?areaId=/?productId=/?projectId=),
+  // each opening the matching detail modal directly — how the command
+  // palette (and anything else) jumps straight to a nested Product/Project
+  // without walking the card hierarchy by hand. Only ?areaId= existed
+  // before this; Product/Project didn't need their own modal-opening path
+  // until something other than a card's own expand icon needed to reach them.
   useEffect(() => {
     const areaId = searchParams.get("areaId");
     if (areaId && areas.length && !expandedArea) {
       const match = areas.find((a) => a.id === areaId);
       if (match) setExpandedArea(match);
     }
-  }, [searchParams, areas, expandedArea]);
+    const productId = searchParams.get("productId");
+    if (productId && products.length && !expandedProduct) {
+      const match = products.find((p) => p.id === productId);
+      if (match) setExpandedProduct(match);
+    }
+    const projectId = searchParams.get("projectId");
+    if (projectId && projects.length && !expandedProject) {
+      const match = projects.find((p) => p.id === projectId);
+      if (match) setExpandedProject(match);
+    }
+  }, [searchParams, areas, products, projects, expandedArea, expandedProduct, expandedProject]);
 
   const handleExpand = (area) => {
     setExpandedArea(area);
@@ -36,6 +56,18 @@ export default function Dashboard() {
   const handleClose = () => {
     setExpandedArea(null);
     searchParams.delete("areaId");
+    setSearchParams(searchParams);
+  };
+
+  const handleCloseProduct = () => {
+    setExpandedProduct(null);
+    searchParams.delete("productId");
+    setSearchParams(searchParams);
+  };
+
+  const handleCloseProject = () => {
+    setExpandedProject(null);
+    searchParams.delete("projectId");
     setSearchParams(searchParams);
   };
 
@@ -144,6 +176,12 @@ export default function Dashboard() {
       <CreateModal />
       {expandedArea && (
         <AreaModal area={expandedArea} onClose={handleClose} />
+      )}
+      {expandedProduct && (
+        <ProductDetailModal product={expandedProduct} onClose={handleCloseProduct} />
+      )}
+      {expandedProject && (
+        <ProjectDetailModal project={expandedProject} onClose={handleCloseProject} />
       )}
       <ProductConnectionLines projects={projects} />
     </div>

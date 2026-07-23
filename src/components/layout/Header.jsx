@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Filter, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose } from "lucide-react";
+import { Plus, Filter, Search, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
 import FilterModal from "@/components/modals/FilterModal";
@@ -7,6 +7,7 @@ import UserMenu from "@/components/layout/UserMenu";
 
 export default function Header({ isLeftSidebarOpen, onToggleLeftSidebar, isRightSidebarOpen, onToggleRightSidebar }) {
   const openCreateModal = useAppStore((s) => s.openCreateModal);
+  const openCommandPalette = useAppStore((s) => s.openCommandPalette);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   return (
@@ -22,6 +23,15 @@ export default function Header({ isLeftSidebarOpen, onToggleLeftSidebar, isRight
         <span className="text-lg tracking-tight font-bold [font-family:'JetBrains_Mono',_monospace]">Vaea</span>
       </div>
       <div className="flex items-center gap-2">
+        <button
+          onClick={openCommandPalette}
+          aria-label="Search everything"
+          className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground px-3 py-1.5 rounded-md border border-border bg-background hover:text-foreground hover:bg-secondary/60 transition-colors"
+        >
+          <Search className="w-3.5 h-3.5" />
+          Search
+          <kbd className="text-[10px] font-mono border border-border rounded px-1 py-0.5">Ctrl K</kbd>
+        </button>
         <Button onClick={() => openCreateModal("task")} className="gap-2">
           <Plus className="w-4 h-4" />
           Create New

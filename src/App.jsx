@@ -14,6 +14,7 @@ import { CardViewProvider } from '@/lib/CardViewContext';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
 import Dashboard from '@/pages/Dashboard';
+import CommandPalette from '@/components/command/CommandPalette';
 // /chat and /settings are code-split out of the main bundle — they're
 // reached only by an explicit click (never on first load), so there's no
 // reason to make every visitor download and parse their code (react-markdown,
@@ -80,8 +81,12 @@ const AuthenticatedApp = () => {
   // Render the main app. /chat and /settings are standalone full-page
   // experiences (their own layout) so they're deliberately NOT wrapped in
   // AppShell's three-column dashboard chrome — every other route is.
+  // CommandPalette is mounted here, alongside the Routes rather than inside
+  // AppShell, specifically so its Ctrl/Cmd+K shortcut also works from /chat
+  // and /settings, not just the dashboard.
   return (
     <Suspense fallback={null}>
+      <CommandPalette />
       <Routes>
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/settings" element={<SettingsPage />} />
