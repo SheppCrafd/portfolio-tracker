@@ -90,6 +90,7 @@ export function useChatController({ activeProjectId } = {}) {
   const [actionHistory, setActionHistory] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(() => readStorage(SESSION_STORAGE_KEY));
   const [aiIdentity, setAiIdentity] = useState(loadAiIdentity);
+  const [authPromptVisible, setAuthPromptVisible] = useState(false);
 
   const fileInputRef = useRef(null);
   const queryClient = useQueryClient();
@@ -216,14 +217,30 @@ export function useChatController({ activeProjectId } = {}) {
     e.preventDefault();
     if (!input.trim() && !attachedFile) return;
 
-    const sessionId = await ensureSession();
+    // ensureSession()/the user-message create both hit Base44's hosted
+    // ChatSession/ChatMessage entities, which RLS denies for an anonymous
+    // visitor (this app runs with requiresAuth: false so the dashboard
+    // itself stays usable while logged out — see AuthContext.jsx). Both
+    // calls used to sit outside any try/catch here, so that denial surfaced
+    // as an uncaught promise rejection: no message in the thread, no
+    // feedback at all, input box silently keeps its text. Catch it and show
+    // the same real chat bubble + sign-in prompt a mid-conversation auth
+    // failure gets below.
+    let sessionId;
     const userText = attachedFile
       ? `${input.trim()}${input.trim() ? "\n\n" : ""}[Attached: ${attachedFile.name}](${attachedFile.url})`
       : input.trim();
-
-    setInput("");
-    setAttachedFile(null);
-    await createMessage.mutateAsync({ session_id: sessionId, role: "user", content: userText });
+    try {
+      sessionId = await ensureSession();
+      setInput("");
+      setAttachedFile(null);
+      await createMessage.mutateAsync({ session_id: sessionId, role: "user", content: userText });
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        setAuthPromptVisible(true);
+      }
+      return;
+    }
     setIsComputing(true);
 
     try {
@@ -307,6 +324,9 @@ export function useChatController({ activeProjectId } = {}) {
     }
   };
 
+  const dismissAuthPrompt = () => setAuthPromptVisible(false);
+  const signInForChat = () => base44.auth.redirectToLogin(window.location.href);
+
   return {
     input, setInput,
     isComputing,
@@ -318,6 +338,9 @@ export function useChatController({ activeProjectId } = {}) {
     activeSessionId,
     fileInputRef,
     iconPicker,
+    authPromptVisible,
+    dismissAuthPrompt,
+    signInForChat,
     chatState,
     handleSelectSession,
     handleNewChat,

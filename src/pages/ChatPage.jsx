@@ -10,6 +10,7 @@ import ChatMessageList from "@/components/ai/ChatMessageList";
 import ChatSessionRow from "@/components/ai/ChatSessionRow";
 import ChatCommandMenu from "@/components/ai/ChatCommandMenu";
 import ChatSettingsModal from "@/components/ai/ChatSettingsModal";
+import ChatAuthPrompt from "@/components/ai/ChatAuthPrompt";
 
 // Full-page chat — a dedicated /chat route (outside the dashboard's AppShell
 // chrome entirely) laid out like a standalone chat app: a persistent session
@@ -128,45 +129,51 @@ export default function ChatPage() {
             </div>
           )}
 
-          <form onSubmit={chat.handleSend} className="p-4 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => chat.fileInputRef.current?.click()}
-              disabled={chat.isUploadingAttachment}
-              aria-label="Add attachment"
-              className="shrink-0 p-2.5 text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-            <input ref={chat.fileInputRef} type="file" onChange={chat.handleFileChange} className="hidden" />
-            <input
-              ref={messageInputRef}
-              value={chat.input}
-              onChange={(e) => chat.setInput(e.target.value)}
-              onKeyDown={slashCommand.handleKeyDown}
-              placeholder={`Message ${chat.aiIdentity.name || "PM Copilot"}...`}
-              className="flex-1 text-sm px-4 py-3 bg-card border border-input rounded-xl outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-              disabled={chat.isComputing}
-              autoComplete="off"
-              autoFocus
-            />
-            <button
-              type="submit"
-              disabled={chat.isComputing}
-              className="shrink-0 text-sm px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-colors shadow-sm disabled:opacity-50"
-            >
-              Send
-            </button>
-            {slashCommand.isOpen && (
-              <ChatCommandMenu
-                inputRef={messageInputRef}
-                matches={slashCommand.matches}
-                activeIndex={slashCommand.activeIndex}
-                onHover={slashCommand.setActiveIndex}
-                onSelect={slashCommand.applyCommand}
+          {chat.authPromptVisible ? (
+            <div className="p-4">
+              <ChatAuthPrompt onSignIn={chat.signInForChat} onDismiss={chat.dismissAuthPrompt} />
+            </div>
+          ) : (
+            <form onSubmit={chat.handleSend} className="p-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => chat.fileInputRef.current?.click()}
+                disabled={chat.isUploadingAttachment}
+                aria-label="Add attachment"
+                className="shrink-0 p-2.5 text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              <input ref={chat.fileInputRef} type="file" onChange={chat.handleFileChange} className="hidden" />
+              <input
+                ref={messageInputRef}
+                value={chat.input}
+                onChange={(e) => chat.setInput(e.target.value)}
+                onKeyDown={slashCommand.handleKeyDown}
+                placeholder={`Message ${chat.aiIdentity.name || "PM Copilot"}...`}
+                className="flex-1 text-sm px-4 py-3 bg-card border border-input rounded-xl outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                disabled={chat.isComputing}
+                autoComplete="off"
+                autoFocus
               />
-            )}
-          </form>
+              <button
+                type="submit"
+                disabled={chat.isComputing}
+                className="shrink-0 text-sm px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-colors shadow-sm disabled:opacity-50"
+              >
+                Send
+              </button>
+              {slashCommand.isOpen && (
+                <ChatCommandMenu
+                  inputRef={messageInputRef}
+                  matches={slashCommand.matches}
+                  activeIndex={slashCommand.activeIndex}
+                  onHover={slashCommand.setActiveIndex}
+                  onSelect={slashCommand.applyCommand}
+                />
+              )}
+            </form>
+          )}
         </div>
       </div>
 

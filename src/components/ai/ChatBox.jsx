@@ -11,6 +11,7 @@ import ChatSessionList from "@/components/ai/ChatSessionList";
 import ChatResizeHandles from "@/components/ai/ChatResizeHandles";
 import ChatCommandMenu from "@/components/ai/ChatCommandMenu";
 import ChatSettingsModal from "@/components/ai/ChatSettingsModal";
+import ChatAuthPrompt from "@/components/ai/ChatAuthPrompt";
 
 // Floating quick-access chat widget. All the actual chat behavior (sessions,
 // sending, confirm/undo, icon persistence, attachments) lives in
@@ -140,40 +141,44 @@ export default function ChatBox({ activeProjectId }) {
             </div>
           )}
 
-          <form onSubmit={chat.handleSend} className="p-3 bg-card border-t border-border flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => chat.fileInputRef.current?.click()}
-              disabled={chat.isUploadingAttachment}
-              aria-label="Add attachment"
-              className="shrink-0 p-2 text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <input ref={chat.fileInputRef} type="file" onChange={chat.handleFileChange} className="hidden" />
-            <input
-              ref={messageInputRef}
-              value={chat.input}
-              onChange={(e) => chat.setInput(e.target.value)}
-              onKeyDown={slashCommand.handleKeyDown}
-              placeholder="E.g., Hello... / PLease add... / File a report for..."
-              className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-              disabled={chat.isComputing}
-              autoComplete="off"
-            />
-            <button type="submit" disabled={chat.isComputing} className="shrink-0 text-sm px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md transition-colors shadow-sm disabled:opacity-50">
-              Send
-            </button>
-            {slashCommand.isOpen && (
-              <ChatCommandMenu
-                inputRef={messageInputRef}
-                matches={slashCommand.matches}
-                activeIndex={slashCommand.activeIndex}
-                onHover={slashCommand.setActiveIndex}
-                onSelect={slashCommand.applyCommand}
+          {chat.authPromptVisible ? (
+            <ChatAuthPrompt onSignIn={chat.signInForChat} onDismiss={chat.dismissAuthPrompt} />
+          ) : (
+            <form onSubmit={chat.handleSend} className="p-3 bg-card border-t border-border flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => chat.fileInputRef.current?.click()}
+                disabled={chat.isUploadingAttachment}
+                aria-label="Add attachment"
+                className="shrink-0 p-2 text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary transition-colors disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+              <input ref={chat.fileInputRef} type="file" onChange={chat.handleFileChange} className="hidden" />
+              <input
+                ref={messageInputRef}
+                value={chat.input}
+                onChange={(e) => chat.setInput(e.target.value)}
+                onKeyDown={slashCommand.handleKeyDown}
+                placeholder="E.g., Hello... / PLease add... / File a report for..."
+                className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                disabled={chat.isComputing}
+                autoComplete="off"
               />
-            )}
-          </form>
+              <button type="submit" disabled={chat.isComputing} className="shrink-0 text-sm px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md transition-colors shadow-sm disabled:opacity-50">
+                Send
+              </button>
+              {slashCommand.isOpen && (
+                <ChatCommandMenu
+                  inputRef={messageInputRef}
+                  matches={slashCommand.matches}
+                  activeIndex={slashCommand.activeIndex}
+                  onHover={slashCommand.setActiveIndex}
+                  onSelect={slashCommand.applyCommand}
+                />
+              )}
+            </form>
+          )}
         </div>
       ) : (
         <button

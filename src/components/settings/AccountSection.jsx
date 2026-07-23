@@ -1,13 +1,35 @@
 import { useState } from "react";
-import { LogOut, AlertTriangle } from "lucide-react";
+import { LogOut, LogIn, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import Avatar from "@/components/shared/Avatar";
 import DeleteAccountDialog from "@/components/settings/DeleteAccountDialog";
 
 export default function AccountSection() {
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, logout, navigateToLogin } = useAuth();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  // The dashboard itself works fully signed-out (all data is local — see
+  // AuthContext.jsx) so this used to render as if `user` were always
+  // populated: "Unnamed user" plus a Log out / Delete account danger zone
+  // that had nothing real to act on. Only chat actually needs sign-in.
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <p className="text-xs font-medium text-muted-foreground mb-4 uppercase tracking-wider">Account</p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">You're not signed in</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Your dashboard data stays on this device either way — signing in only enables the AI chat.</p>
+          </div>
+          <Button variant="outline" onClick={navigateToLogin} className="gap-2 shrink-0">
+            <LogIn className="w-4 h-4" />
+            Sign in
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const displayName = user?.full_name || user?.email || "Unnamed user";
 

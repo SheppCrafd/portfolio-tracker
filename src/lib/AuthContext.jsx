@@ -5,6 +5,40 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext();
 
+// One-shot guard against auto-redirecting to Base44's hosted login more than
+// once per tab session. Without this, a token that round-trips through
+// /login but still fails checkUserAuth() (expired immediately, scoped to
+// the wrong app, whatever) sets authError back to 'auth_required' on the
+// next mount, which re-triggers the same automatic redirect — an infinite
+// bounce between this app and Base44's login page. This is exactly the
+// failure mode hit and reverted on 2026-07-22. sessionStorage (not a
+// module-level variable) survives the full-page navigation a redirect is.
+const REDIRECT_ATTEMPTED_KEY = "vaea_auth_redirect_attempted";
+
+export const hasAttemptedAuthRedirect = () => {
+  try {
+    return sessionStorage.getItem(REDIRECT_ATTEMPTED_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+
+export const markAuthRedirectAttempted = () => {
+  try {
+    sessionStorage.setItem(REDIRECT_ATTEMPTED_KEY, "true");
+  } catch {
+    // best-effort — worst case the guard just doesn't persist
+  }
+};
+
+const clearAuthRedirectAttempted = () => {
+  try {
+    sessionStorage.removeItem(REDIRECT_ATTEMPTED_KEY);
+  } catch {
+    // best-effort
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -98,6 +132,7 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
       setAuthChecked(true);
+      clearAuthRedirectAttempted();
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
@@ -132,6 +167,28 @@ export const AuthProvider = ({ children }) => {
     base44.auth.redirectToLogin(window.location.href);
   };
 
+  // Escape hatch from the "couldn't sign you in automatically" screen — the
+  // dashboard is designed to work fully signed-out (requiresAuth: false,
+  // all app data is local), so a stale/invalid token should never be able
+  // to trap someone out of their own local data. Clears the bad token
+  // in-place (no navigation, unlike base44.auth.logout()) and drops back to
+  // the same state a fresh anonymous visitor starts in.
+  const continueAnonymously = () => {
+    try {
+      localStorage.removeItem('base44_access_token');
+      localStorage.removeItem('token');
+    } catch {
+      // best-effort
+    }
+    setUser(null);
+    setIsAuthenticated(false);
+    setAuthError(null);
+    setIsLoadingAuth(false);
+    setIsLoadingPublicSettings(false);
+    setAuthChecked(true);
+    clearAuthRedirectAttempted();
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -143,6 +200,7 @@ export const AuthProvider = ({ children }) => {
       authChecked,
       logout,
       navigateToLogin,
+      continueAnonymously,
       checkUserAuth,
       checkAppState
     }}>

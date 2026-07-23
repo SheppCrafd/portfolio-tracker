@@ -5,7 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { AuthProvider, useAuth, hasAttemptedAuthRedirect, markAuthRedirectAttempted } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import { HighlightProvider } from '@/lib/HighlightContext';
@@ -25,7 +25,7 @@ const VaultSetupGuidePage = lazy(() => import('@/pages/VaultSetupGuidePage'));
 // Add page imports here
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, continueAnonymously } = useAuth();
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -41,9 +41,39 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
+      // Auto-redirect to Base44's hosted login, but only once per tab
+      // session (see hasAttemptedAuthRedirect's comment in AuthContext.jsx)
+      // — a stale/invalid token that survives the login round-trip would
+      // otherwise bounce forever between this app and Base44's login page.
+      if (!hasAttemptedAuthRedirect()) {
+        markAuthRedirectAttempted();
+        navigateToLogin();
+        return null;
+      }
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-background px-4">
+          <div className="max-w-sm text-center space-y-3">
+            <p className="text-sm font-medium">Couldn't sign you in automatically</p>
+            <p className="text-xs text-muted-foreground">
+              Your dashboard data lives on this device either way — signing in only affects the AI chat.
+            </p>
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <button
+                onClick={continueAnonymously}
+                className="text-sm px-4 py-2 bg-secondary hover:opacity-80 text-secondary-foreground border border-border font-medium rounded-md transition-colors"
+              >
+                Continue without signing in
+              </button>
+              <button
+                onClick={() => { markAuthRedirectAttempted(); navigateToLogin(); }}
+                className="text-sm px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        </div>
+      );
     }
   }
 
