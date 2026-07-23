@@ -27,7 +27,7 @@ export default function ChatPage() {
   const slashCommand = useSlashCommand(chat.input, chat.setInput);
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-full flex overflow-hidden bg-background">
       {isSidebarOpen && (
         <aside className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
           <div className="p-3 border-b border-border flex items-center justify-between gap-2">

@@ -13,6 +13,7 @@ import { FilterProvider } from '@/lib/FilterContext';
 import { CardViewProvider } from '@/lib/CardViewContext';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import AppShell from '@/components/layout/AppShell';
+import Header from '@/components/layout/Header';
 import Dashboard from '@/pages/Dashboard';
 import CommandPalette from '@/components/command/CommandPalette';
 // /chat and /settings are code-split out of the main bundle — they're
@@ -72,24 +73,30 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // Render the main app. /chat and /settings are standalone full-page
-  // experiences (their own layout) so they're deliberately NOT wrapped in
-  // AppShell's three-column dashboard chrome — every other route is.
-  // CommandPalette is mounted here, alongside the Routes rather than inside
-  // AppShell, specifically so its Ctrl/Cmd+K shortcut also works from /chat
-  // and /settings, not just the dashboard.
+  // Header now renders once here, above every route, instead of inside
+  // AppShell — so it (and its Dashboard/Chat/Settings tab bar) is present
+  // everywhere, not just on the dashboard. /chat and /settings still own
+  // their own content below it (no sidebars/hamburgers, same as before) —
+  // only the top bar itself is now shared. CommandPalette stays alongside
+  // Routes rather than inside AppShell, for the same "works everywhere"
+  // reason.
   return (
-    <Suspense fallback={null}>
-      <CommandPalette />
-      <Routes>
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/vault-setup" element={<VaultSetupGuidePage />} />
-        {/* Add your page Route elements here */}
-        <Route path="/" element={<AppShell><Dashboard /></AppShell>} />
-        <Route path="*" element={<AppShell><PageNotFound /></AppShell>} />
-      </Routes>
-    </Suspense>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <Header />
+      <div className="flex-1 min-h-0">
+        <Suspense fallback={null}>
+          <CommandPalette />
+          <Routes>
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/vault-setup" element={<VaultSetupGuidePage />} />
+            {/* Add your page Route elements here */}
+            <Route path="/" element={<AppShell><Dashboard /></AppShell>} />
+            <Route path="*" element={<AppShell><PageNotFound /></AppShell>} />
+          </Routes>
+        </Suspense>
+      </div>
+    </div>
   );
 };
 

@@ -12,7 +12,7 @@ import ResourcesSection from "@/components/settings/ResourcesSection";
 // needed here, just a simple header and a stack of section cards.
 export default function SettingsPage() {
   return (
-    <div className="h-screen overflow-y-auto bg-background">
+    <div className="h-full overflow-y-auto bg-background">
       <div className="border-b border-border bg-card sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link to="/" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground shrink-0">

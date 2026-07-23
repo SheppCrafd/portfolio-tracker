@@ -90,43 +90,50 @@ export default function CommandPalette() {
     }
   }, [isOpen]);
 
-  const goHome = (params) => navigate(`/?${new URLSearchParams(params).toString()}`);
-
   const quickActions = useMemo(() => [
     { key: "create-task", label: "Create Task", Icon: Plus, run: () => { openCreateModal("task"); navigate("/"); } },
     { key: "create-project", label: "Create Project", Icon: Plus, run: () => { openCreateModal("project"); navigate("/"); } },
     { key: "create-product", label: "Create Product", Icon: Plus, run: () => { openCreateModal("product"); navigate("/"); } },
     { key: "create-area", label: "Create Area", Icon: Plus, run: () => { openCreateModal("area"); navigate("/"); } },
-    { key: "open-chat", label: "Open full-page chat", Icon: MessageCircle, run: () => navigate("/chat") },
-    { key: "open-settings", label: "Open Settings", Icon: Settings, run: () => navigate("/settings") },
+    // url set (not just run) on the two that are real, plain routes with
+    // nothing else to set up first — that's what makes Ctrl/Cmd+Enter or
+    // Ctrl/Cmd+click able to open them in a new tab below. The create-*
+    // actions and the theme toggle have no such standalone URL (creating
+    // opens a modal via in-memory store state, not a route; the theme is a
+    // preference, not a page) so the modifier is a no-op for those — they
+    // just run normally either way.
+    { key: "open-chat", label: "Open full-page chat", Icon: MessageCircle, url: "/chat", run: () => navigate("/chat") },
+    { key: "open-settings", label: "Open Settings", Icon: Settings, url: "/settings", run: () => navigate("/settings") },
     { key: "toggle-theme", label: resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme", Icon: SunMoon, run: () => setTheme(resolvedTheme === "dark" ? "light" : "dark") },
   ], [openCreateModal, navigate, resolvedTheme, setTheme]);
 
-  const jumpTo = (item) => {
+  // The URL a result deep-links to, when it has one — shared by the normal
+  // (same-tab) jump below and the Ctrl/Cmd-modified (new-tab) path in
+  // runResult. Stakeholder results have no such URL (the highlight they set
+  // is ephemeral React context state, not URL-encoded, so there's nothing
+  // meaningful to open in a second tab) — same-tab only, always.
+  const resolveUrl = (item) => {
     switch (item.type) {
-      case "area":
-        goHome({ areaId: item.id });
-        break;
-      case "product":
-        goHome({ productId: item.id });
-        break;
-      case "project":
-        goHome({ projectId: item.id });
-        break;
-      case "task":
-        // No standalone task view exists — its parent project's expand
-        // modal, embedding the task table, is the closest real "open" state.
-        if (item.projectId) goHome({ projectId: item.projectId });
-        break;
-      case "stakeholder":
-        // Best-effort default: light up the projects they're on, the same
-        // category clicking their sidebar row's "Projects" checkbox does.
-        toggleHighlight(item.id, "projects");
-        navigate("/");
-        break;
-      default:
-        break;
+      case "area": return `/?${new URLSearchParams({ areaId: item.id })}`;
+      case "product": return `/?${new URLSearchParams({ productId: item.id })}`;
+      case "project": return `/?${new URLSearchParams({ projectId: item.id })}`;
+      // No standalone task view exists — its parent project's expand modal,
+      // embedding the task table, is the closest real "open" state.
+      case "task": return item.projectId ? `/?${new URLSearchParams({ projectId: item.projectId })}` : null;
+      default: return null;
     }
+  };
+
+  const jumpTo = (item) => {
+    if (item.type === "stakeholder") {
+      // Best-effort default: light up the projects they're on, the same
+      // category clicking their sidebar row's "Projects" checkbox does.
+      toggleHighlight(item.id, "projects");
+      navigate("/");
+      return;
+    }
+    const url = resolveUrl(item);
+    if (url) navigate(url);
   };
 
   const searchResults = useMemo(() => {
@@ -139,11 +146,25 @@ export default function CommandPalette() {
 
   const results = query.trim() ? searchResults : quickActions;
 
-  const runResult = (index) => {
+  // Ctrl/Cmd+Enter or Ctrl/Cmd+click opens the result's page in a new
+  // background tab instead of navigating the current one — the standard
+  // browser convention for "open this without losing where I am", extended
+  // here to results that aren't real <a href> links. Only applies to
+  // results with a real URL (resolveUrl/quickActions' `url`); for anything
+  // else (creating something, toggling the theme, a stakeholder highlight)
+  // there's nothing a second tab could meaningfully hold, so the modifier
+  // is simply ignored and the action runs same-tab as usual.
+  const runResult = (index, { newTab = false } = {}) => {
     const result = results[index];
     if (!result) return;
-    if (result.run) result.run();
-    else jumpTo(result);
+    const url = result.url || (!result.run ? resolveUrl(result) : null);
+    if (newTab && url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else if (result.run) {
+      result.run();
+    } else {
+      jumpTo(result);
+    }
     closePalette();
   };
 
@@ -156,9 +177,12 @@ export default function CommandPalette() {
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      runResult(activeIndex);
+      runResult(activeIndex, { newTab: e.ctrlKey || e.metaKey });
     }
   };
+
+  const activeResult = results[activeIndex];
+  const activeHasUrl = !!(activeResult && (activeResult.url || (!activeResult.run && resolveUrl(activeResult))));
 
   if (!isOpen) return null;
 
@@ -193,7 +217,7 @@ export default function CommandPalette() {
                 return (
                   <button
                     key={result.key || `${result.type}-${result.id}`}
-                    onClick={() => runResult(index)}
+                    onClick={(e) => runResult(index, { newTab: e.ctrlKey || e.metaKey })}
                     onMouseEnter={() => setActiveIndex(index)}
                     className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors ${isActive ? "bg-secondary" : "hover:bg-secondary/60"}`}
                   >
@@ -205,6 +229,14 @@ export default function CommandPalette() {
                   </button>
                 );
               })
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 px-4 py-2 border-t border-border text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1"><kbd className="font-mono border border-border rounded px-1 py-0.5">↑↓</kbd> navigate</span>
+            <span className="flex items-center gap-1"><kbd className="font-mono border border-border rounded px-1 py-0.5">↵</kbd> open</span>
+            {activeHasUrl && (
+              <span className="flex items-center gap-1"><kbd className="font-mono border border-border rounded px-1 py-0.5">ctrl+↵</kbd> new tab</span>
             )}
           </div>
         </div>

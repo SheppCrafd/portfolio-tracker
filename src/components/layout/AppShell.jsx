@@ -1,12 +1,12 @@
 import { useState, lazy, Suspense } from "react";
 import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import { Archive, FolderKanban } from "lucide-react";
-import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import ArchivePanel from "@/components/archive/ArchivePanel";
 import Avatar from "@/components/shared/Avatar";
 import { useGlobalDragEnd } from "@/hooks/useGlobalDragEnd";
+import { useAppStore } from "@/lib/store";
 
 // Code-split, like /chat and /settings already are (see App.jsx) — ChatBox
 // pulls in react-markdown (message rendering) and its own session/action
@@ -15,24 +15,14 @@ import { useGlobalDragEnd } from "@/hooks/useGlobalDragEnd";
 // mounted. This alone was the main-bundle's single biggest chunk.
 const ChatBox = lazy(() => import("@/components/ai/ChatBox"));
 
-const LEFT_STORAGE_KEY = "vaea_left_sidebar_open";
-const RIGHT_STORAGE_KEY = "vaea_right_sidebar_open";
-
-const loadOpenState = (key) => {
-  try {
-    return localStorage.getItem(key) !== "false";
-  } catch {
-    return true;
-  }
-};
-
-// Locks the app into a CSS grid-template-areas layout: header spans the top,
-// stakeholders sit left, main content center, focus/stats sit right. Either
-// side panel can be collapsed via Header's hamburger toggles — collapsing
-// reflows the center column to fill the freed space (not an overlay), and
-// the choice persists across sessions the same lightweight way
-// useChatController persists icon choice (plain localStorage, no state
-// library).
+// Locks the dashboard into a CSS grid: stakeholders left, main content
+// center, focus/stats right. Either side panel can be collapsed via
+// Header's hamburger toggles — collapsing reflows the center column to fill
+// the freed space (not an overlay). Panel open/closed state and its
+// localStorage persistence live in useAppStore now, not a local useState —
+// Header renders once above every route (App.jsx), not inside AppShell
+// anymore, so it needs to reach this state without AppShell passing it
+// down as props.
 //
 // The single DndContext lives here (not scoped to Dashboard/AreaModal like
 // it used to be) because dragging a stakeholder from the left sidebar onto a
@@ -43,24 +33,9 @@ const loadOpenState = (key) => {
 export default function AppShell({ children }) {
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [activeDragData, setActiveDragData] = useState(null);
-  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(() => loadOpenState(LEFT_STORAGE_KEY));
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(() => loadOpenState(RIGHT_STORAGE_KEY));
+  const isLeftSidebarOpen = useAppStore((s) => s.isLeftSidebarOpen);
+  const isRightSidebarOpen = useAppStore((s) => s.isRightSidebarOpen);
   const handleDragEnd = useGlobalDragEnd();
-
-  const toggleLeftSidebar = () => {
-    setIsLeftSidebarOpen((prev) => {
-      const next = !prev;
-      localStorage.setItem(LEFT_STORAGE_KEY, String(next));
-      return next;
-    });
-  };
-  const toggleRightSidebar = () => {
-    setIsRightSidebarOpen((prev) => {
-      const next = !prev;
-      localStorage.setItem(RIGHT_STORAGE_KEY, String(next));
-      return next;
-    });
-  };
 
   return (
     <DndContext
@@ -73,21 +48,12 @@ export default function AppShell({ children }) {
       onDragCancel={() => setActiveDragData(null)}
     >
       <div
-        className="h-screen grid overflow-hidden transition-[grid-template-columns] duration-200 ease-in-out"
+        className="h-full grid overflow-hidden transition-[grid-template-columns] duration-200 ease-in-out"
         style={{
-          gridTemplateAreas: `"header header header" "leftsidebar main sidebar"`,
+          gridTemplateAreas: `"leftsidebar main sidebar"`,
           gridTemplateColumns: `${isLeftSidebarOpen ? "280px" : "0px"} 1fr ${isRightSidebarOpen ? "320px" : "0px"}`,
-          gridTemplateRows: "64px 1fr",
         }}
       >
-        <div style={{ gridArea: "header" }}>
-          <Header
-            isLeftSidebarOpen={isLeftSidebarOpen}
-            onToggleLeftSidebar={toggleLeftSidebar}
-            isRightSidebarOpen={isRightSidebarOpen}
-            onToggleRightSidebar={toggleRightSidebar}
-          />
-        </div>
         <aside style={{ gridArea: "leftsidebar" }} className="overflow-hidden border-r border-border bg-card">
           {isLeftSidebarOpen && (
             <div className="h-full overflow-y-auto p-4">
