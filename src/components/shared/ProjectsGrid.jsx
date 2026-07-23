@@ -11,8 +11,14 @@ import ProjectCardFull from "@/components/projects/ProjectCardFull";
 // leaving leftover space unused. Shared here rather than duplicated in
 // ProductCard/AreaCard, since both need the exact same Full-vs-Mini
 // branching.
-export default function ProjectsGrid({ projects, stakeholderIds, emptyMessage, gap, className = "" }) {
-  const { cardView } = useCardView();
+//
+// `forceView`, when set, overrides the dashboard's Mini/Full toggle —
+// AreaModal passes "full" down through a Product's own ProjectsGrid so an
+// expanded Area always shows full project cards underneath it, regardless
+// of what the dashboard behind it is currently toggled to.
+export default function ProjectsGrid({ projects, stakeholderIds, emptyMessage, gap, className = "", forceView }) {
+  const { cardView: dashboardCardView } = useCardView();
+  const cardView = forceView || dashboardCardView;
 
   if (projects.length === 0) {
     return emptyMessage ? (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Expand, GripVertical, Link2, Plus, X } from "lucide-react";
+import { Expand, GripVertical, Link2, Plus, Trash2, X } from "lucide-react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { usePositionedMenu } from "@/hooks/usePositionedMenu";
 import PositionedPopover from "@/components/shared/PositionedPopover";
@@ -14,11 +14,11 @@ import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjectNotes, useCreateProjectNote } from "@/hooks/useProjectNotes";
 import { useStakeholders } from "@/hooks/useStakeholders";
-import { useUpdateProject } from "@/hooks/useProjects";
+import { useUpdateProject, useDeleteProject } from "@/hooks/useProjects";
 import { useEditableField } from "@/hooks/useEditableField";
 import { useHighlightMatch } from "@/hooks/useHighlightDim";
 import { useHighlight } from "@/lib/HighlightContext";
-import { sanitizeHttpUrl } from "@/lib/entityUtils";
+import { confirmThen, sanitizeHttpUrl } from "@/lib/entityUtils";
 import { filterActiveTasks, getQuadrantCounts, isTaskDone, STATUS_COLORS } from "@/lib/taskUtils";
 import { getDueDateColorClass, DUE_DATE_STATUS_OPTIONS } from "@/lib/projectUtils";
 
@@ -187,6 +187,14 @@ export default function ProjectCardFull({ project, stakeholderIds = [] }) {
 
   const addNote = (type, content) => createProjectNote.mutate({ project_id: project.id, type, content });
 
+  const deleteProject = useDeleteProject();
+  const handleDelete = () => {
+    confirmThen(
+      `Delete project "${project.title}"? This cannot be undone.`,
+      () => deleteProject.mutate(project.id)
+    );
+  };
+
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: project.id,
     data: { type: "project", id: project.id, title: project.title },
@@ -242,15 +250,26 @@ export default function ProjectCardFull({ project, stakeholderIds = [] }) {
         <GripVertical className="w-4 h-4" />
       </div>
 
-      <button
-        onClick={() => setIsDetailOpen(true)}
-        className="absolute top-2 right-2 z-20 text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
-        aria-label="Expand project"
-      >
-        <Expand className="w-3.5 h-3.5" />
-      </button>
+      <div className="absolute top-2 right-2 flex items-center gap-0.5 z-20">
+        <button
+          onClick={() => setIsDetailOpen(true)}
+          className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
+          title="Expand Project"
+          aria-label="Expand project"
+        >
+          <Expand className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={handleDelete}
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1 rounded transition-colors"
+          title="Delete Project"
+          aria-label="Delete project"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
-      <div className="flex items-start gap-3 pr-5 pl-5">
+      <div className="flex items-start gap-3 pr-11 pl-5">
         <button
           onClick={() => setIsTableOpen(true)}
           className="shrink-0 mt-1 grid grid-cols-2 gap-1 border border-border rounded overflow-hidden w-16 h-16 text-sm z-20 select-none"

@@ -11,7 +11,7 @@ import { confirmThen } from "@/lib/entityUtils";
 import EditableText from "@/components/shared/EditableText";
 import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
 import CustomFieldsSection from "@/components/shared/CustomFieldsSection";
-import ProjectCard from "@/components/projects/ProjectCard";
+import ProjectCardFull from "@/components/projects/ProjectCardFull";
 
 export default function ProductDetailModal({ product, onClose }) {
   const { data: allStakeholders = [] } = useStakeholders();
@@ -113,7 +113,7 @@ export default function ProductDetailModal({ product, onClose }) {
             ) : (
               <div className="flex flex-col gap-3">
                 {projects.map((project) => (
-                  <ProjectCard key={project.id} project={project} stakeholderIds={product.stakeholder_ids} />
+                  <ProjectCardFull key={project.id} project={project} stakeholderIds={product.stakeholder_ids} />
                 ))}
               </div>
             )}

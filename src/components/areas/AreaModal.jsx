@@ -8,7 +8,7 @@ import { useFilter } from "@/lib/FilterContext";
 import EditableText from "@/components/shared/EditableText";
 import CustomFieldsSection from "@/components/shared/CustomFieldsSection";
 import ProductCard from "@/components/products/ProductCard";
-import ProjectCard from "@/components/projects/ProjectCard";
+import ProjectCardFull from "@/components/projects/ProjectCardFull";
 
 export default function AreaModal({ area, onClose }) {
   const { data: allAreas = [] } = useAreas();
@@ -68,12 +68,12 @@ export default function AreaModal({ area, onClose }) {
               <p className="text-sm">No products or projects yet. Click "Create New" to add one to this area.</p>
             </div>
           ) : (
-            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
+            <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))" }}>
               {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} forceFullProjects />
               ))}
               {standaloneProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} />
+                <ProjectCardFull key={project.id} project={project} />
               ))}
             </div>
           )}

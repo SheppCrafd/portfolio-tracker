@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Expand } from "lucide-react";
+import { Expand, Trash2 } from "lucide-react";
 import { useFilter } from "@/lib/FilterContext";
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllTasks } from "@/hooks/useTasks";
-import { useUpdateProduct } from "@/hooks/useProducts";
+import { useUpdateProduct, useDeleteProduct } from "@/hooks/useProducts";
 import { useEditableField } from "@/hooks/useEditableField";
 import { useHighlightMatch } from "@/hooks/useHighlightDim";
+import { confirmThen } from "@/lib/entityUtils";
 import EditableText from "@/components/shared/EditableText";
 import CardCustomFields from "@/components/shared/CardCustomFields";
 import StakeholderAssigner from "@/components/shared/StakeholderAssigner";
@@ -15,13 +16,14 @@ import ProjectsGrid from "@/components/shared/ProjectsGrid";
 import ProductDetailModal from "@/components/products/ProductDetailModal";
 import TaskStatistics from "@/components/shared/TaskStatistics";
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, forceFullProjects = false }) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { data: allStakeholders = [] } = useStakeholders();
   const { data: allProjects = [] } = useProjects();
   const { data: allTasks = [] } = useAllTasks();
   const { excludedIds } = useFilter();
   const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
 
   const { value: title, handleInput, handleBlur: handleTitleBlur, handleKeyDown: handleTitleKeyDown } = useEditableField(
     product.title,
@@ -41,6 +43,13 @@ export default function ProductCard({ product }) {
   const projectIds = projects.map((p) => p.id);
   const productTasks = allTasks.filter((t) => projectIds.includes(t.project_id));
 
+  const handleDelete = () => {
+    confirmThen(
+      `Delete product "${product.title}"? This will also delete all of its projects and their tasks. This cannot be undone.`,
+      () => deleteProduct.mutate(product.id)
+    );
+  };
+
   // The Area's products row is a CSS grid (`auto-fit`/`minmax`) — it decides
   // how many Products fit per row and how wide each one's column is (growing
   // to fill leftover space when there's room, wrapping to a new row when
@@ -59,16 +68,27 @@ export default function ProductCard({ product }) {
       data-product-card={product.id}
       className={`relative z-10 bg-muted/40 border border-border/70 rounded-xl p-4 overflow-hidden ${sizingClass} ${isMatched ? "bg-primary/10 ring-1 ring-primary/30" : ""} ${isOver ? "ring-2 ring-primary ring-offset-1" : ""}`}
     >
-      <button
-        onClick={() => setIsDetailOpen(true)}
-        className="absolute top-3 right-3 z-20 text-muted-foreground hover:text-foreground hover:bg-card p-1 rounded-md transition-colors"
-        aria-label="Expand product"
-      >
-        <Expand className="w-4 h-4" />
-      </button>
+      <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
+        <button
+          onClick={() => setIsDetailOpen(true)}
+          className="text-muted-foreground hover:text-foreground hover:bg-card p-1 rounded-md transition-colors"
+          title="Expand Product"
+          aria-label="Expand product"
+        >
+          <Expand className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleDelete}
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1 rounded-md transition-colors"
+          title="Delete Product"
+          aria-label="Delete product"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
       
-      <div className="relative z-[1] min-w-0 pr-6">
-        <h3 
+      <div className="relative z-[1] min-w-0 pr-12">
+        <h3
           className="font-heading font-semibold break-words min-w-0 outline-none focus:ring-1 focus:ring-primary/40 rounded cursor-text"
           contentEditable
           suppressContentEditableWarning
@@ -102,6 +122,7 @@ export default function ProductCard({ product }) {
         stakeholderIds={product.stakeholder_ids}
         emptyMessage="Drop a project here"
         gap={8}
+        forceView={forceFullProjects ? "full" : undefined}
         className={`relative z-[1] mt-4 min-h-[80px] rounded-lg p-2 transition-colors ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : "bg-transparent"}`}
       />
 

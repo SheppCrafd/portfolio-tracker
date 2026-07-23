@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Expand, GripVertical, AlertTriangle, HelpCircle } from "lucide-react";
+import { Expand, GripVertical, AlertTriangle, HelpCircle, Trash2 } from "lucide-react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import TaskTableModal from "@/components/projects/TaskTableModal";
 import ProjectDetailModal from "@/components/projects/ProjectDetailModal";
@@ -8,7 +8,8 @@ import { useProjectNotes } from "@/hooks/useProjectNotes";
 import { useEditableField } from "@/hooks/useEditableField";
 import { useHighlightMatch } from "@/hooks/useHighlightDim";
 import { useHighlight } from "@/lib/HighlightContext";
-import { useUpdateProject } from "@/hooks/useProjects";
+import { useUpdateProject, useDeleteProject } from "@/hooks/useProjects";
+import { confirmThen } from "@/lib/entityUtils";
 import { getQuadrantCounts, getMiniStatusCounts, STATUS_COLORS } from "@/lib/taskUtils";
 
 // Mini card: the dashboard's default project face is deliberately just
@@ -33,11 +34,19 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
   const riskNotes = notes.filter((n) => n.type === "RISK");
   const questionNotes = notes.filter((n) => n.type === "QUESTION");
   const updateProject = useUpdateProject();
+  const deleteProject = useDeleteProject();
 
   const { value: title, handleInput: handleTitleInput, handleBlur: handleTitleBlur, handleKeyDown: handleTitleKeyDown } = useEditableField(
     project.title,
     (value) => updateProject.mutate({ id: project.id, data: { title: value } })
   );
+
+  const handleDelete = () => {
+    confirmThen(
+      `Delete project "${project.title}"? This cannot be undone.`,
+      () => deleteProject.mutate(project.id)
+    );
+  };
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: project.id,
@@ -87,13 +96,24 @@ export default function ProjectCard({ project, stakeholderIds = [] }) {
         <GripVertical className="w-3 h-3" />
       </div>
 
-      <button
-        onClick={() => setIsDetailOpen(true)}
-        className="absolute top-1 right-1 z-20 text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted transition-colors"
-        aria-label="Expand project"
-      >
-        <Expand className="w-3 h-3" />
-      </button>
+      <div className="absolute top-1 right-1 flex items-center gap-0.5 z-20">
+        <button
+          onClick={() => setIsDetailOpen(true)}
+          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted transition-colors"
+          title="Expand Project"
+          aria-label="Expand project"
+        >
+          <Expand className="w-3 h-3" />
+        </button>
+        <button
+          onClick={handleDelete}
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-0.5 rounded transition-colors"
+          title="Delete Project"
+          aria-label="Delete project"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
 
       <h4
         className="font-heading font-semibold text-[11px] leading-tight text-center break-words outline-none focus:ring-1 focus:ring-primary/40 rounded cursor-text w-full px-3 mt-3 line-clamp-2"
