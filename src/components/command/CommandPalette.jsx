@@ -49,11 +49,29 @@ export default function CommandPalette() {
   // input has focus (e.g. mid-edit on a card field) — that's the whole
   // point of a global quick-jump shortcut. Escape closes only while open,
   // so it doesn't swallow every other component's own Escape handling.
+  //
+  // Ctrl+K collides with browser/OS-chrome shortcuts on some setups (Edge's
+  // own search-bar handling intercepts it before any page-level
+  // preventDefault() can run — that's happening below the page entirely, not
+  // fixable from here). "/" is the standard fallback for exactly this
+  // (GitHub, Slack, Discord, Notion all use it) since a bare, unmodified key
+  // is never reserved by a browser or OS — only fires when focus isn't
+  // already in an editable field, so typing a literal "/" anywhere else in
+  // the app (a task description, the chat composer, an editable title)
+  // still just types a slash.
   useEffect(() => {
+    const isEditableTarget = (el) => {
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+    };
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         isOpen ? closePalette() : openPalette();
+      } else if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !isOpen && !isEditableTarget(document.activeElement)) {
+        e.preventDefault();
+        openPalette();
       } else if (e.key === "Escape" && isOpen) {
         closePalette();
       }

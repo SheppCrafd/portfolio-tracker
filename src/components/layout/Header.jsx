@@ -30,7 +30,7 @@ export default function Header({ isLeftSidebarOpen, onToggleLeftSidebar, isRight
         >
           <Search className="w-3.5 h-3.5" />
           Search
-          <kbd className="text-[10px] font-mono border border-border rounded px-1 py-0.5">Ctrl K</kbd>
+          <kbd className="text-[10px] font-mono border border-border rounded px-1 py-0.5">/</kbd>
         </button>
         <Button onClick={() => openCreateModal("task")} className="gap-2">
           <Plus className="w-4 h-4" />
