@@ -80,7 +80,20 @@ function searchRecords(query, records, type, fields, titleField) {
 const GITHUB_API = 'https://api.github.com';
 
 function githubHeaders(token, extra) {
-  return { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...extra };
+  // GitHub's REST API rejects any request with no User-Agent header — a
+  // browser's fetch() always attaches one automatically (which is why the
+  // client-side calls in githubApi.js never needed this), but Deno's
+  // server-side fetch() here doesn't send one on its own, and GitHub's
+  // response for that specific case is a 403 with no indication it's an
+  // auth/permission problem at all. See
+  // https://docs.github.com/en/rest/overview/resources-in-the-rest-api#user-agent-required
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'Vaea-App',
+    ...extra,
+  };
 }
 
 function encodeRepoPath(path) {
