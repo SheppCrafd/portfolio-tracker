@@ -3,7 +3,7 @@ import { Check, Download, Upload } from "lucide-react";
 import { loadAiIdentity, saveAiIdentity, DEFAULTS as IDENTITY_DEFAULTS } from "@/lib/aiPreferences";
 
 const FIELDS = [
-  { key: "name", label: "Name", placeholder: "E.g., Copilot, Anvil, Scout...", rows: 1 },
+  { key: "name", label: "Name", placeholder: "Vaea Chat (default) — or give it a name of your own", rows: 1 },
   { key: "identity", label: "Identity", placeholder: "Who is it? What's its role here?", rows: 2 },
   { key: "soul", label: "Soul (tone & protocol)", placeholder: "E.g., Direct, no filler. When I mention a bug or ask which approach to take, always give me two alternatives and compare them before answering.", rows: 3 },
   { key: "userProfile", label: "About you", placeholder: "How you work, what you value, how you like to communicate.", rows: 3 },

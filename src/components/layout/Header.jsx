@@ -6,7 +6,7 @@ import UserMenu from "@/components/layout/UserMenu";
 
 const TABS = [
   { key: "dashboard", label: "Dashboard", to: "/app", Icon: LayoutDashboard, isActive: (path) => path === "/app" },
-  { key: "chat", label: "Chat", to: "/app/chat", Icon: MessageCircle, isActive: (path) => path.startsWith("/app/chat") },
+  { key: "chat", label: "Vaea Chat", to: "/app/chat", Icon: MessageCircle, isActive: (path) => path.startsWith("/app/chat") },
   { key: "settings", label: "Settings", to: "/app/settings", Icon: SettingsIcon, isActive: (path) => path.startsWith("/app/settings") },
 ];
 
@@ -70,7 +70,7 @@ export default function Header() {
                   aria-current={active ? "page" : undefined}
                   className={`flex items-center gap-1.5 text-sm pl-3 py-1.5 ${canClose ? "pr-1.5" : "pr-3"} ${active ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className={`w-3.5 h-3.5 ${key === "chat" && !active ? "text-primary" : ""}`} />
                   {label}
                 </Link>
                 {canClose && (

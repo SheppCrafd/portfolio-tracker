@@ -80,7 +80,7 @@ function Footer() {
           <div>
             <Logo />
             <p className="mt-3 text-sm text-muted-foreground max-w-xs">
-              A personal workspace for organizing work, with an AI assistant that can act on it. Local-first — your data stays on your device.
+              A personal workspace for organizing work, with Vaea Chat — an AI that acts on it, not just talks about it. Local-first — your data stays on your device.
             </p>
           </div>
 

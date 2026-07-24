@@ -6,15 +6,15 @@ import MarketingLayout from "./MarketingLayout";
 const STEPS = [
   {
     title: "Sign in",
-    body: "Google, Microsoft, Apple, or email — whichever you'd rather use. It only unlocks the AI chat; organizing, editing, and bulk import all work without it.",
+    body: "Google, Microsoft, Apple, or email — whichever you'd rather use. It only unlocks Vaea Chat; organizing, editing, and bulk import all work without it.",
   },
   {
     title: "Pick where your data lives",
-    body: "On Chrome or Edge desktop, grant a folder once via the File System Access API — your areas, products, projects, and tasks are written there as real files. Elsewhere, export and import by hand. Either way, nothing is stored remotely except your AI chat history.",
+    body: "On Chrome or Edge desktop, grant a folder once via the File System Access API — your areas, products, projects, and tasks are written there as real files. Elsewhere, export and import by hand. Either way, nothing is stored remotely except your Vaea Chat history.",
   },
   {
-    title: "Build out your hierarchy",
-    body: "Add an area by hand and work down from there, or bring a spreadsheet — one CSV where each row spells out the full parent path — and let it create areas, products, projects, and tasks in one pass. Or just ask the AI assistant to set it up for you.",
+    title: "Tell Vaea Chat to build it out",
+    body: "Type \"/setup\" and it'll interview you for a name and a personality, then ask it to lay out your hierarchy — or hand it a spreadsheet, one CSV where each row spells out the full parent path, and it'll create areas, products, projects, and tasks in one pass.",
   },
 ];
 
@@ -48,7 +48,7 @@ export default function HowItWorksPage() {
         <div className="pt-8 border-t border-border">
           <p className="text-muted-foreground max-w-lg">
             From there, it's just working — the command palette (Ctrl/Cmd+K) jumps to or acts on
-            anything, and the AI chat can take multi-step requests instead of you clicking through
+            anything, and Vaea Chat takes multi-step requests instead of you clicking through
             each change by hand.
           </p>
         </div>

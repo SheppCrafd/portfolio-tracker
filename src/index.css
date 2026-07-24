@@ -235,6 +235,26 @@
   animation: chat-icon-computing 2.2s infinite;
 }
 
+/* A hard on/off blink (not a fade) — reads as a real terminal cursor next to
+   the "thinking" indicator, matching the static cursor block in the
+   marketing site's hero mockup. */
+@keyframes chat-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.chat-cursor-blink {
+  animation: chat-cursor-blink 1s step-end infinite;
+}
+
+/* Each live "plan ·" / "tool call ·" line fades/lifts in the moment it's
+   appended (see useChatController.js's liveSteps) — same motion as
+   .chat-message-content's cascade, but driven by a real state update per
+   step instead of a fixed per-child delay. */
+.chat-step-reveal {
+  animation: chat-fade-in-line 0.25s ease forwards;
+}
+
 /* Cascading fade-in for a chat message's rendered markdown — each top-level
    block (paragraph, heading, list) and each list item fades/lifts in a beat
    after the previous one, reading as a "line by line" reveal. */

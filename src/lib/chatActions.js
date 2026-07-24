@@ -389,9 +389,78 @@ function planNeedsSnapshot(actions) {
   return actions.length > 1 || actions.some((a) => a.action === "BULK_CREATE" || DESTRUCTIVE_ACTIONS.has(a.action));
 }
 
+// Which key of a step's toolResult holds the entity to label a tool-log
+// line with (e.g. ARCHIVE_PROJECT's result is `{ project }` — label the
+// line with that project's own title, not its id).
+const TOOL_LOG_RESULT_KEY = {
+  CREATE_AREA: "area", UPDATE_AREA: "area", DELETE_AREA: "area",
+  CREATE_PRODUCT: "product", UPDATE_PRODUCT: "product", DELETE_PRODUCT: "product",
+  CREATE_PROJECT: "project", UPDATE_PROJECT: "project", MOVE_PROJECT: "project",
+  ARCHIVE_PROJECT: "project", RESTORE_PROJECT: "project", DELETE_PROJECT: "project",
+  CREATE_TASK: "task", UPDATE_TASK: "task", UPDATE_TASK_STATUS: "task",
+  TOGGLE_WEEKLY_FOCUS: "task", TOGGLE_TOP_THREE: "task", ARCHIVE_TASK: "task",
+  RESTORE_TASK: "task", DELETE_TASK: "task",
+  CREATE_STAKEHOLDER: "stakeholder", UPDATE_STAKEHOLDER: "stakeholder", DELETE_STAKEHOLDER: "stakeholder",
+  CREATE_DEPARTMENT: "department", RENAME_DEPARTMENT: "department", DELETE_DEPARTMENT: "department",
+  CREATE_NOTE: "note", UPDATE_NOTE: "note",
+  SET_CUSTOM_FIELD: "entity",
+};
+
+function labelOf(entity) {
+  return entity?.title || entity?.name || entity?.description || "";
+}
+
+// Turns one executed step into the same "tool call · fn(...)" shape the
+// marketing site's hero mockup shows — built from the step's *real*
+// toolResult (a project's actual title, a bulk action's actual count), not
+// a canned string, so the chat transcript's tool-call log is always true.
+export function describeToolCall({ action, toolResult }) {
+  const fn = action.toLowerCase();
+  const resultKey = TOOL_LOG_RESULT_KEY[action];
+  if (resultKey) {
+    const label = labelOf(toolResult?.[resultKey]);
+    return label ? `${fn}("${label}")` : `${fn}()`;
+  }
+  if (typeof toolResult?.count === "number") {
+    return `${fn}(${toolResult.count}${toolResult.entity_type ? ` ${toolResult.entity_type}` : ""})`;
+  }
+  return `${fn}()`;
+}
+
+// Same entity-type grouping as TOOL_LOG_RESULT_KEY, but read from a step's
+// own args — used for the "plan · ..." line, shown before any step has run
+// (so there's no toolResult yet to read a type from).
+function entityTypeOfStep({ action, args }) {
+  const key = TOOL_LOG_RESULT_KEY[action];
+  if (key === "entity") return args?.entity_type || "item";
+  if (key) return key;
+  if (action === "BULK_CREATE" || action === "BULK_DELETE" || action === "EXPORT_CSV") return args?.entity_type || "item";
+  return null;
+}
+
+// The "plan · ..." line shown before a plan's steps run — tallies the real
+// entity types the plan's own actions touch (2 projects, 1 stakeholder),
+// not a canned summary, so it stays true even though nothing has executed yet.
+export function describePlan(actions) {
+  const counts = {};
+  for (const step of actions) {
+    const type = entityTypeOfStep(step);
+    if (!type) continue;
+    counts[type] = (counts[type] || 0) + 1;
+  }
+  const parts = Object.entries(counts).map(([type, n]) => `${n} ${type}${n === 1 ? "" : "s"}`);
+  const stepWord = actions.length === 1 ? "step" : "steps";
+  return parts.length
+    ? `plan · ${actions.length} ${stepWord} across ${parts.join(", ")}`
+    : `plan · ${actions.length} ${stepWord}`;
+}
+
 // Runs a plan's actions in order (not in parallel — later steps may depend
-// on ids captured from earlier ones via temp_id/$placeholder).
-export async function executeActionSequence(actions) {
+// on ids captured from earlier ones via temp_id/$placeholder). `onStep`,
+// if given, is awaited after each step actually finishes — this is what
+// lets the UI reveal tool-call lines as they really happen instead of only
+// after the whole plan completes.
+export async function executeActionSequence(actions, { onStep } = {}) {
   if (planNeedsSnapshot(actions)) {
     await createSnapshot(`Before ${actions.length > 1 ? `${actions.length}-step plan` : actions[0].action}`);
   }
@@ -405,7 +474,9 @@ export async function executeActionSequence(actions) {
       const created = Object.values(result.toolResult || {})[0];
       if (created && typeof created === "object" && created.id) tempIdMap[step.temp_id] = created.id;
     }
-    steps.push({ action: step.action, toolResult: result.toolResult });
+    const executed = { action: step.action, args: resolvedArgs, toolResult: result.toolResult };
+    steps.push(executed);
+    if (onStep) await onStep(executed);
   }
   return steps;
 }

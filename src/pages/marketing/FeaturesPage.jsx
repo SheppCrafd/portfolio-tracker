@@ -1,12 +1,23 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  Boxes, LayoutGrid, Command, FileSpreadsheet, Bot, Search,
+  Boxes, LayoutGrid, Command, FileSpreadsheet, Bot, Search, Fingerprint,
   Paperclip, ClipboardCheck, FolderCog, LockKeyhole, HardDrive, ArrowRight,
 } from "lucide-react";
 import MarketingLayout from "./MarketingLayout";
 
 const GROUPS = [
+  {
+    title: "Vaea Chat",
+    lede: "Not a chatbot that describes what to do — a tool-calling agent that actually does it, shaped into whoever you want it to be.",
+    items: [
+      { icon: Bot, title: "Multi-step execution", body: "Per-action, typed tools plan and execute real changes against your workspace, not a single blind reply." },
+      { icon: Fingerprint, title: "A name and a personality it keeps", body: "Set its name, role, tone, and what it knows about how you work — by hand in Settings, or by typing \"/setup\" and letting it interview you." },
+      { icon: Search, title: "Web search", body: "Looks things up when a task needs outside information." },
+      { icon: Paperclip, title: "Attachment reading", body: "Reads files you drop into the chat as part of planning what to do." },
+      { icon: ClipboardCheck, title: "Workspace search + tidy audit", body: "Searches your own data, and can run a hygiene pass (\"/tidy\") to flag things worth cleaning up." },
+    ],
+  },
   {
     title: "Organize",
     lede: "One structure for everything you're working on, at whatever level it actually lives at.",
@@ -25,21 +36,11 @@ const GROUPS = [
     ],
   },
   {
-    title: "An AI assistant that acts",
-    lede: "Not a chatbot that describes what to do — a tool-calling agent that actually does it.",
-    items: [
-      { icon: Bot, title: "Multi-step execution", body: "Per-action, typed tools plan and execute real changes against your workspace, not a single blind reply." },
-      { icon: Search, title: "Web search", body: "Looks things up when a task needs outside information." },
-      { icon: Paperclip, title: "Attachment reading", body: "Reads files you drop into the chat as part of planning what to do." },
-      { icon: ClipboardCheck, title: "Workspace search + tidy audit", body: "Searches your own data, and can run a hygiene pass (\"/tidy\") to flag things worth cleaning up." },
-    ],
-  },
-  {
     title: "Your data, your device",
     lede: "Local-first by design, not as an afterthought.",
     items: [
       { icon: HardDrive, title: "No browser storage for real data", body: "A folder on this device (granted once via Chrome's file access), or manual export/import elsewhere." },
-      { icon: LockKeyhole, title: "Sign-in unlocks only the AI chat", body: "Everything else — organizing, editing, bulk import, the command palette — works with or without signing in." },
+      { icon: LockKeyhole, title: "Sign-in unlocks only Vaea Chat", body: "Everything else — organizing, editing, bulk import, the command palette — works with or without signing in." },
     ],
   },
 ];

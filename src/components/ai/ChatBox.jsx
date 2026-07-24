@@ -83,7 +83,7 @@ export default function ChatBox({ activeProjectId }) {
                 aria-label="Choose chat icon"
               >
                 <ChatIcon iconChoice={chat.iconChoice} className="w-5 h-5" />
-                <span className="font-semibold text-sm">{chat.aiIdentity.name || "PM Copilot"}</span>
+                <span className="font-terminal font-semibold text-sm">{chat.aiIdentity.name || "Vaea Chat"}</span>
               </button>
               <button
                 onClick={() => setIsSessionListOpen((v) => !v)}
@@ -125,6 +125,7 @@ export default function ChatBox({ activeProjectId }) {
           <ChatMessageList
             messages={chat.chatState.messages}
             isComputing={chat.isComputing}
+            liveSteps={chat.liveSteps}
             iconChoice={chat.iconChoice}
             hasMore={chat.chatState.hasMore}
             onLoadMore={chat.chatState.loadMore}
@@ -155,16 +156,19 @@ export default function ChatBox({ activeProjectId }) {
                 <Plus className="w-4 h-4" />
               </button>
               <input ref={chat.fileInputRef} type="file" onChange={chat.handleFileChange} className="hidden" />
-              <input
-                ref={messageInputRef}
-                value={chat.input}
-                onChange={(e) => chat.setInput(e.target.value)}
-                onKeyDown={slashCommand.handleKeyDown}
-                placeholder="E.g., Hello... / PLease add... / File a report for..."
-                className="flex-1 text-sm px-3 py-2 bg-background border border-input rounded-md outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-                disabled={chat.isComputing}
-                autoComplete="off"
-              />
+              <div className="flex-1 flex items-center gap-1.5 bg-background border border-input rounded-md px-3 py-2 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
+                <span className="font-terminal text-primary text-sm select-none">{'>'}</span>
+                <input
+                  ref={messageInputRef}
+                  value={chat.input}
+                  onChange={(e) => chat.setInput(e.target.value)}
+                  onKeyDown={slashCommand.handleKeyDown}
+                  placeholder="E.g., Hello... / PLease add... / File a report for..."
+                  className="flex-1 min-w-0 font-terminal text-sm bg-transparent outline-none"
+                  disabled={chat.isComputing}
+                  autoComplete="off"
+                />
+              </div>
               <button type="submit" disabled={chat.isComputing} className="shrink-0 text-sm px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md transition-colors shadow-sm disabled:opacity-50">
                 Send
               </button>

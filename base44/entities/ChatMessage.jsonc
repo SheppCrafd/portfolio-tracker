@@ -17,6 +17,9 @@
     },
     "pending_action": {
       "type": "object"
+    },
+    "tool_log_detail": {
+      "type": "object"
     }
   },
   "required": [

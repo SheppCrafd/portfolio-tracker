@@ -97,7 +97,7 @@ export default function ChatPage() {
             aria-label="Choose chat icon"
           >
             <ChatIcon iconChoice={chat.iconChoice} className="w-5 h-5" />
-            <span className="font-heading font-semibold text-sm">{chat.aiIdentity.name || "PM Copilot"}</span>
+            <span className="font-terminal font-semibold text-sm">{chat.aiIdentity.name || "Vaea Chat"}</span>
           </button>
           <Info
             className="w-4 h-4 text-muted-foreground cursor-help ml-auto"
@@ -119,6 +119,7 @@ export default function ChatPage() {
           <ChatMessageList
             messages={chat.chatState.messages}
             isComputing={chat.isComputing}
+            liveSteps={chat.liveSteps}
             iconChoice={chat.iconChoice}
             hasMore={chat.chatState.hasMore}
             onLoadMore={chat.chatState.loadMore}
@@ -151,17 +152,20 @@ export default function ChatPage() {
                 <Plus className="w-5 h-5" />
               </button>
               <input ref={chat.fileInputRef} type="file" onChange={chat.handleFileChange} className="hidden" />
-              <input
-                ref={messageInputRef}
-                value={chat.input}
-                onChange={(e) => chat.setInput(e.target.value)}
-                onKeyDown={slashCommand.handleKeyDown}
-                placeholder={`Message ${chat.aiIdentity.name || "PM Copilot"}...`}
-                className="flex-1 text-sm px-4 py-3 bg-card border border-input rounded-xl outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-                disabled={chat.isComputing}
-                autoComplete="off"
-                autoFocus
-              />
+              <div className="flex-1 flex items-center gap-2 bg-card border border-input rounded-xl px-4 py-3 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
+                <span className="font-terminal text-primary text-sm select-none">{'>'}</span>
+                <input
+                  ref={messageInputRef}
+                  value={chat.input}
+                  onChange={(e) => chat.setInput(e.target.value)}
+                  onKeyDown={slashCommand.handleKeyDown}
+                  placeholder={`Message ${chat.aiIdentity.name || "Vaea Chat"}...`}
+                  className="flex-1 min-w-0 font-terminal text-sm bg-transparent outline-none"
+                  disabled={chat.isComputing}
+                  autoComplete="off"
+                  autoFocus
+                />
+              </div>
               <button
                 type="submit"
                 disabled={chat.isComputing}

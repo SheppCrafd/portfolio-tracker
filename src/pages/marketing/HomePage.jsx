@@ -1,20 +1,18 @@
-import { useEffect, Fragment } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Bot, FileSpreadsheet, Command, LockKeyhole, ArrowRight, ChevronRight } from "lucide-react";
+import { Bot, Fingerprint, Command, LockKeyhole, ArrowRight } from "lucide-react";
 import MarketingLayout from "./MarketingLayout";
-
-const TIER_NAMES = ["Area", "Product", "Project", "Task"];
 
 const HIGHLIGHTS = [
   {
     icon: Bot,
-    title: "An AI assistant that can act",
-    body: "A real tool-calling agent that searches the web, reads attachments, searches your workspace, and executes multi-step changes when you ask it to.",
+    title: "An AI that acts, not just answers",
+    body: "A real tool-calling agent that plans multi-step changes, then executes them against your workspace — searches the web, reads attachments, reorganizes your hierarchy.",
   },
   {
-    icon: FileSpreadsheet,
-    title: "Bulk import from a spreadsheet",
-    body: "Bring in an entire area → product → project → task hierarchy from one CSV instead of building it by hand.",
+    icon: Fingerprint,
+    title: "Give it a name and a personality",
+    body: "Vaea Chat's identity — its name, its role, its tone — is yours to write, by hand in Settings or by letting it interview you with /setup.",
   },
   {
     icon: Command,
@@ -24,49 +22,48 @@ const HIGHLIGHTS = [
   {
     icon: LockKeyhole,
     title: "Local-first data",
-    body: "Your project data lives on your own device, not in a database in the cloud. Signing in only unlocks the AI chat.",
+    body: "Your project data lives on your own device, not in a database in the cloud. Signing in only unlocks Vaea Chat.",
   },
 ];
 
-// Nested fieldset-style frames, outer to inner: Area contains Product
-// contains Project contains Task, exactly matching the app's real data
-// model — not a decorative diagram.
-function HierarchyDiagram() {
-  const tiers = [
-    { label: "Area", pad: "p-6", radius: "rounded-2xl" },
-    { label: "Product", pad: "p-5", radius: "rounded-xl" },
-    { label: "Project", pad: "p-4", radius: "rounded-lg" },
-    { label: "Task", pad: "p-4 min-h-11", radius: "rounded-md", isInnermost: true },
-  ];
-
-  let node = null;
-
-  for (let i = tiers.length - 1; i >= 0; i--) {
-    const t = tiers[i];
-    node = (
-      <div
-        className={`relative border ${t.radius} ${t.pad} ${
-          t.isInnermost ? "border-primary/40 bg-primary/10" : "border-foreground/20"
-        }`}
-      >
-        <span
-          className={`absolute -top-2.5 left-3 px-1.5 bg-background font-terminal text-[10px] uppercase tracking-widest ${
-            t.isInnermost ? "text-primary" : "text-foreground/70"
-          }`}
-        >
-          {t.label}
-        </span>
-        {node}
+// The hero's signature visual: a real transcript shape, not a chat-bubble
+// mockup — this is what the agent actually does (plan, then a run of typed
+// tool calls, then a plain-language result), rendered in the same terminal
+// font/register the app already reserves for real command output (see
+// --font-terminal in index.css). Static, not an animation loop — it reads
+// once, correctly, rather than looping like a marketing gif.
+function AgentTranscript() {
+  return (
+    <div className="w-full max-w-md mx-auto rounded-xl border border-border bg-card shadow-lg overflow-hidden">
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-border">
+        <span className="w-2.5 h-2.5 rounded-full bg-foreground/15" />
+        <span className="w-2.5 h-2.5 rounded-full bg-foreground/15" />
+        <span className="w-2.5 h-2.5 rounded-full bg-foreground/15" />
+        <span className="ml-2 font-terminal text-[11px] text-muted-foreground">Vaea Chat</span>
       </div>
-    );
-  }
-
-  return <div className="w-full max-w-xs mx-auto">{node}</div>;
+      <div className="p-4 font-terminal text-[13px] leading-relaxed">
+        <p className="text-foreground">
+          <span className="text-primary">{'>'}</span> tidy up Marketing, archive anything stale
+        </p>
+        <div className="mt-3 space-y-1 text-muted-foreground">
+          <p>plan · reviewing 14 projects across 3 products</p>
+          <p>tool call · archive_project("Q1 Newsletter")</p>
+          <p>tool call · move_project("Landing Page Copy" → Growth)</p>
+          <p>tool call · archive_project("Old Brand Deck")</p>
+        </div>
+        <p className="mt-3 text-foreground">
+          Archived 2, moved 1. Marketing's down to 11 active projects —
+          want the same pass on Ops?
+          <span className="inline-block w-[7px] h-[13px] bg-primary/70 align-middle ml-0.5" />
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function HomePage() {
   useEffect(() => {
-    document.title = "Vaea — one hierarchy for everything you're working on";
+    document.title = "Vaea Chat — an AI that acts on your work";
   }, []);
 
   return (
@@ -74,20 +71,16 @@ export default function HomePage() {
       <div className="max-w-6xl mx-auto px-6 pt-16 sm:pt-24">
         <div className="grid md:grid-cols-[1.15fr_1fr] gap-12 md:gap-16 items-center pb-16 sm:pb-24">
           <div>
-            <p className="flex items-center gap-1 font-terminal text-xs uppercase tracking-widest text-muted-foreground mb-4">
-              {TIER_NAMES.map((name, i) => (
-                <Fragment key={name}>
-                  {i > 0 && <ChevronRight className="w-3 h-3 shrink-0" />}
-                  {name}
-                </Fragment>
-              ))}
+            <p className="font-terminal text-xs uppercase tracking-widest text-primary mb-4">
+              Vaea Chat
             </p>
             <h1 className="font-heading text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]">
-              One hierarchy for everything you're working on.
+              An AI that acts on your work, not just around it.
             </h1>
             <p className="mt-5 text-lg text-muted-foreground max-w-md">
-              Vaea keeps your areas, products, projects, and tasks in a single structure —
-              and an AI assistant that can act on it, not just talk about it.
+              Give Vaea Chat a name and a personality, then ask it to reorganize, create,
+              or clean up. It plans the steps and executes them against your real areas,
+              products, projects, and tasks — a tool-calling agent, not a search box.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
@@ -107,7 +100,7 @@ export default function HomePage() {
             <p className="mt-4 text-xs text-muted-foreground">Data stays on your device either way.</p>
           </div>
 
-          <HierarchyDiagram />
+          <AgentTranscript />
         </div>
       </div>
 

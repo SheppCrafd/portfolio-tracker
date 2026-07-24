@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 
 // Rendered at the real, linkable /login route (src/pages/marketing/LoginPage.jsx)
 // — replaces the old auto-redirect-to-Base44's-hosted-/login flow. That page
@@ -26,8 +27,15 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { continueAsGuest } = useAuth();
 
   const returnTo = searchParams.get("from") || "/app";
+
+  const handleSkip = () => {
+    continueAsGuest();
+    navigate(returnTo);
+  };
 
   const handleProvider = (provider) => {
     setError("");
@@ -72,7 +80,7 @@ export default function LoginScreen() {
           <div className="space-y-1">
             <p className="text-sm font-medium">Sign in to Vaea</p>
             <p className="text-xs text-muted-foreground">
-              Your workspace data stays on this device either way — signing in unlocks the AI chat.
+              Your workspace data stays on this device either way — signing in unlocks Vaea Chat.
             </p>
           </div>
         </div>
@@ -125,6 +133,19 @@ export default function LoginScreen() {
         </form>
 
         {error && <p className="text-xs text-destructive text-center">{error}</p>}
+
+        <div className="pt-3 border-t border-border text-center space-y-1">
+          <button
+            type="button"
+            onClick={handleSkip}
+            className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+          >
+            Continue without signing in
+          </button>
+          <p className="text-[11px] text-muted-foreground/80">
+            You won't be able to use Vaea Chat until you sign in — everything else works either way.
+          </p>
+        </div>
 
         <p className="text-center text-xs text-muted-foreground">
           <Link to="/" className="underline hover:text-foreground transition-colors">Back to home</Link>

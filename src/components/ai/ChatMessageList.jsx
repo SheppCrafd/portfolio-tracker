@@ -1,6 +1,7 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import ChatIcon from "@/components/ai/ChatIcon";
+import ChatToolLogDetail from "@/components/ai/ChatToolLogDetail";
 
 // react-markdown's own default already allows only a safe set of protocols,
 // but the AI assistant's reply is composed partly from untrusted database
@@ -16,10 +17,56 @@ const sanitizeUrl = (url) => {
   return "";
 };
 
+// Fenced ```tool-log blocks are how useChatController.js encodes the real
+// actions a plan executed (see describeToolCall in chatActions.js) — render
+// each line the same dim, unbulleted way the marketing site's hero mockup
+// shows a tool call, instead of react-markdown's default <pre><code> box.
+//
+// Built per-message (not a module constant) because each message's own
+// tool_log_detail (the plan's real actions/args and each step's resolved
+// args + toolResult, persisted by useChatController.js) is what makes a
+// given line clickable — the fenced block's line order always matches
+// tool_log_detail 1:1: line 0 is the plan, line i>=1 is steps[i-1].
+function makeMarkdownComponents(toolLogDetail, onOpenDetail) {
+  return {
+    pre: ({ children }) => <>{children}</>,
+    code({ className, children }) {
+      if (className === "language-tool-log") {
+        const lines = String(children).replace(/\n$/, "").split("\n");
+        return (
+          <div className="my-1.5 space-y-0.5 text-muted-foreground">
+            {lines.map((line, i) => {
+              const data = i === 0 ? toolLogDetail?.plan : toolLogDetail?.steps?.[i - 1];
+              if (!data) return <p key={i}>{line}</p>;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onOpenDetail({ title: line, data })}
+                  className="block text-left hover:text-foreground hover:underline decoration-dotted underline-offset-2"
+                >
+                  {line}
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
+      return <code className={`${className || ""} font-terminal text-xs bg-secondary/60 px-1 py-0.5 rounded`}>{children}</code>;
+    },
+  };
+}
+
 // Renders the message list. Scrolling is plain native browser scrolling —
-// lazy-loads older messages as the user scrolls near the top.
-export default function ChatMessageList({ messages, isComputing, iconChoice, hasMore, onLoadMore, resolvingId, onConfirm, onCancel }) {
+// lazy-loads older messages as the user scrolls near the top. Styled as a
+// flat terminal transcript (user turns prefixed "> ", tool-log lines dim,
+// the actual reply full-contrast) rather than chat bubbles — the same
+// register as the marketing site's hero mockup, not a decorative match: it's
+// the one place real assistant output belongs (see --font-terminal in
+// index.css).
+export default function ChatMessageList({ messages, isComputing, liveSteps, iconChoice, hasMore, onLoadMore, resolvingId, onConfirm, onCancel }) {
   const containerRef = useRef(null);
+  const [openDetail, setOpenDetail] = useState(null);
 
   const handleScroll = () => {
     const el = containerRef.current;
@@ -40,7 +87,7 @@ export default function ChatMessageList({ messages, isComputing, iconChoice, has
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3 text-sm bg-background/50"
+      className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4 font-terminal text-[13px] leading-relaxed bg-background/50"
     >
       {hasMore && (
         <button onClick={onLoadMore} className="text-[10px] text-muted-foreground hover:text-foreground self-center">
@@ -49,12 +96,16 @@ export default function ChatMessageList({ messages, isComputing, iconChoice, has
       )}
 
       {messages.map((m) => (
-        <div key={m.id} className={m.role === "user" ? "text-right" : ""}>
-          <div className={`inline-block rounded-lg px-3 py-1.5 max-w-[85%] text-left ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground shadow-sm"}`}>
-            <div className="chat-message-content">
-              <ReactMarkdown urlTransform={sanitizeUrl}>{m.content}</ReactMarkdown>
+        <div key={m.id}>
+          {m.role === "user" ? (
+            <p className="text-foreground whitespace-pre-wrap">
+              <span className="text-primary">{'>'}</span> {m.content}
+            </p>
+          ) : (
+            <div className="chat-message-content text-foreground">
+              <ReactMarkdown urlTransform={sanitizeUrl} components={makeMarkdownComponents(m.tool_log_detail, setOpenDetail)}>{m.content}</ReactMarkdown>
             </div>
-          </div>
+          )}
           {m.pending_action && (
             <div className="mt-1.5 flex gap-2 justify-start">
               <button
@@ -77,12 +128,17 @@ export default function ChatMessageList({ messages, isComputing, iconChoice, has
       ))}
 
       {isComputing && (
-        <div className="flex justify-start">
-          <div className="inline-block rounded-lg px-3 py-1.5 bg-secondary text-secondary-foreground shadow-sm flex items-center gap-2">
-            <ChatIcon iconChoice={iconChoice} className="w-4 h-4 text-primary chat-icon-computing" />
-          </div>
+        <div className="text-muted-foreground space-y-0.5">
+          {(liveSteps || []).map((line, i) => (
+            <p key={i} className="chat-step-reveal">{line}</p>
+          ))}
+          <p className="flex items-center gap-1.5">
+            <ChatIcon iconChoice={iconChoice} className="w-3.5 h-3.5 text-primary chat-icon-computing" />
+            <span className="inline-block w-[7px] h-[13px] bg-primary/70 chat-cursor-blink" />
+          </p>
         </div>
       )}
+      {openDetail && <ChatToolLogDetail detail={openDetail} onClose={() => setOpenDetail(null)} />}
     </div>
   );
 }

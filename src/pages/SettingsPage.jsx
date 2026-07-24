@@ -3,6 +3,7 @@ import { PanelLeft, PanelLeftClose } from "lucide-react";
 import AccountSection from "@/components/settings/AccountSection";
 import AppearanceSection from "@/components/settings/AppearanceSection";
 import AiPreferencesSection from "@/components/settings/AiPreferencesSection";
+import AiModelSection from "@/components/settings/AiModelSection";
 import BackupRestoreSection from "@/components/settings/BackupRestoreSection";
 import ExternalVaultSection from "@/components/settings/ExternalVaultSection";
 import ResourcesSection from "@/components/settings/ResourcesSection";
@@ -12,6 +13,7 @@ const SECTIONS = [
   { key: "account", label: "Account", Component: AccountSection },
   { key: "appearance", label: "Appearance", Component: AppearanceSection },
   { key: "ai", label: "AI Preferences", Component: AiPreferencesSection },
+  { key: "ai-model", label: "AI Model", Component: AiModelSection },
   { key: "backup", label: "Backup & Restore", Component: BackupRestoreSection },
   { key: "vault", label: "External Vault", Component: ExternalVaultSection },
   { key: "resources", label: "Resources", Component: ResourcesSection },

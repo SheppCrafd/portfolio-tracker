@@ -3,8 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Bot, Sparkles, HelpCircle, Smile } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { localDb } from "@/lib/localDb";
-import { executeAction, executeActionSequence, DESTRUCTIVE_ACTIONS, NON_EXECUTABLE_ACTIONS } from "@/lib/chatActions";
+import { executeAction, executeActionSequence, describeToolCall, describePlan, DESTRUCTIVE_ACTIONS, NON_EXECUTABLE_ACTIONS } from "@/lib/chatActions";
 import { loadAiIdentity, DEFAULTS as IDENTITY_DEFAULTS } from "@/lib/aiPreferences";
+import { loadAiProviderConfig, isByokConfigured } from "@/lib/aiProviderConfig";
+import { runByokChat } from "@/lib/llm/byokChat";
 import { loadVaultConnection } from "@/lib/vaultConnection";
 import { usePositionedMenu } from "@/hooks/usePositionedMenu";
 import { useCreateChatSession } from "@/hooks/useChatSessions";
@@ -75,6 +77,15 @@ function loadIconChoice() {
   }
 }
 
+// A short, deliberate pause between revealing each live step — local
+// execution against localDb finishes in well under a frame, too fast to
+// read as "happening" at all without this. Only applied up to a handful of
+// steps; a bulk plan (CSV import's own action lists, BULK_CREATE) shouldn't
+// force a multi-second wait just to be watchable.
+const STEP_REVEAL_DELAY_MS = 150;
+const MAX_PACED_STEPS = 6;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Shared brains for the chat experience — session management, sending and
 // confirming/undoing assistant actions, icon persistence, attachments. Both
 // the floating chat widget (ChatBox) and the full-page chat (ChatPage) use
@@ -88,6 +99,11 @@ export function useChatController({ activeProjectId } = {}) {
   const [iconChoice, setIconChoice] = useState(loadIconChoice);
   const [resolvingId, setResolvingId] = useState(null);
   const [actionHistory, setActionHistory] = useState([]);
+  // Lines shown live while a plan runs — the "plan · ..." line, then one
+  // "tool call · fn(...)" per step as it actually finishes (see
+  // executeActionSequence's onStep). Cleared once the final message
+  // (which carries the same lines, permanently) is created.
+  const [liveSteps, setLiveSteps] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(() => readStorage(SESSION_STORAGE_KEY));
   const [aiIdentity, setAiIdentity] = useState(IDENTITY_DEFAULTS);
   const [authPromptVisible, setAuthPromptVisible] = useState(false);
@@ -169,6 +185,34 @@ export function useChatController({ activeProjectId } = {}) {
     const archivedProjects = projects.filter((p) => p.is_archived && !p.deleted_at);
     const tasks = allTasks.filter((t) => !t.archived_at && !t.deleted_at);
     const archivedTasks = allTasks.filter((t) => t.archived_at && !t.deleted_at);
+
+    // Settings -> AI Model: if the user brought their own provider key, the
+    // plan is decided entirely client-side (src/lib/llm/byokChat.js) —
+    // straight from this browser to that provider's own API, never through
+    // Base44. Same {reply, actions} contract either way, so nothing past
+    // this point (chatActions.js, confirm/undo, tool-log rendering) needs
+    // to know or care which path answered.
+    const providerConfig = await loadAiProviderConfig();
+    if (isByokConfigured(providerConfig)) {
+      return runByokChat({
+        providerConfig,
+        contextArgs: {
+          activeProjectId: payload.activeProjectId,
+          userText: payload.message,
+          conversationHistory: payload.conversationHistory,
+          aiIdentity: await loadAiIdentity(),
+          areas: areas.filter((a) => !a.deleted_at),
+          products: products.filter((p) => !p.deleted_at),
+          projects: projectsActive,
+          archivedProjects,
+          tasks,
+          archivedTasks,
+          stakeholders: stakeholders.filter((s) => !s.deleted_at),
+          departments: departments.filter((d) => !d.deleted_at),
+          notes,
+        },
+      });
+    }
 
     try {
       // base44.functions.invoke() runs on its own axios client, created with
@@ -273,12 +317,24 @@ export function useChatController({ activeProjectId } = {}) {
       if (executable.some((a) => DESTRUCTIVE_ACTIONS.has(a.action))) {
         await createMessage.mutateAsync({
           session_id: sessionId, role: "assistant", content: reply,
-          pending_action: { actions: executable, confirmMessage: reply },
+          pending_action: { actions: executable },
         });
         return;
       }
 
-      const results = await executeActionSequence(executable);
+      // Reveal the plan, then each tool call, as it actually happens —
+      // executeActionSequence's onStep fires only once that step has really
+      // run. STEP_REVEAL_DELAY_MS just paces the *reveal* so a sub-frame
+      // localDb write is still readable; it doesn't fake anything that
+      // didn't happen.
+      setLiveSteps([describePlan(executable)]);
+      const paceReveal = executable.length <= MAX_PACED_STEPS;
+      const results = await executeActionSequence(executable, {
+        onStep: async (step) => {
+          setLiveSteps((prev) => [...prev, describeToolCall(step)]);
+          if (paceReveal) await sleep(STEP_REVEAL_DELAY_MS);
+        },
+      });
       // A response can carry a whole plan's worth of steps (mass
       // populate/delete) instead of just one — collect every step's undo
       // info, if any, so each stays individually undoable via
@@ -288,33 +344,63 @@ export function useChatController({ activeProjectId } = {}) {
         setActionHistory((prev) => [...prev, ...undos]);
       }
 
-      await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: reply });
+      // A fenced ```tool-log block, parsed and styled by ChatMessageList —
+      // the same "plan · ..." / "tool call · fn(...)" transcript shape just
+      // shown live, now persisted so it survives a reload. tool_log_detail
+      // carries the real data behind each of those lines (the plan's own
+      // actions/args, and each step's resolved args + toolResult) so
+      // ChatMessageList can make a line clickable to reveal it verbatim.
+      const toolLog = [describePlan(executable), ...results.map(describeToolCall)].join("\n");
+      const content = `\`\`\`tool-log\n${toolLog}\n\`\`\`\n${reply}`;
+      setLiveSteps([]);
+      await createMessage.mutateAsync({
+        session_id: sessionId, role: "assistant", content,
+        tool_log_detail: { plan: executable, steps: results },
+      });
       await invalidateAppQueries();
     } catch (error) {
       await createMessage.mutateAsync({ session_id: sessionId, role: "assistant", content: `⚠️ Error: ${error.message}` });
     } finally {
       setIsComputing(false);
+      setLiveSteps([]);
     }
   };
 
   const handleConfirm = async (message) => {
+    const { actions } = message.pending_action;
     setResolvingId(message.id);
     setIsComputing(true);
     try {
-      await executeActionSequence(message.pending_action.actions);
+      setLiveSteps([describePlan(actions)]);
+      const paceReveal = actions.length <= MAX_PACED_STEPS;
+      const results = await executeActionSequence(actions, {
+        onStep: async (step) => {
+          setLiveSteps((prev) => [...prev, describeToolCall(step)]);
+          if (paceReveal) await sleep(STEP_REVEAL_DELAY_MS);
+        },
+      });
       // ChatMessage's `content`/`role` are required fields, and Base44
       // validates an update against the entity's full required-field list,
       // not just the keys being changed — a payload that only clears
       // `pending_action` gets rejected with "Field required". Carry the
       // message's existing values through so nothing's missing.
       await updateMessage.mutateAsync({ id: message.id, data: { session_id: message.session_id, role: message.role, content: message.content, pending_action: null } });
-      await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: message.pending_action.confirmMessage || "Done." });
+      // A distinct completion message with its own tool-log, not a repeat
+      // of the pre-confirm `reply` text above it (that was the doubling bug
+      // — confirmMessage used to just be that same `reply` string again).
+      const toolLog = [describePlan(actions), ...results.map(describeToolCall)].join("\n");
+      setLiveSteps([]);
+      await createMessage.mutateAsync({
+        session_id: message.session_id, role: "assistant", content: `\`\`\`tool-log\n${toolLog}\n\`\`\`\nDone.`,
+        tool_log_detail: { plan: actions, steps: results },
+      });
       await invalidateAppQueries();
     } catch (error) {
       await createMessage.mutateAsync({ session_id: message.session_id, role: "assistant", content: `⚠️ Couldn't complete that: ${error.message}` });
     } finally {
       setIsComputing(false);
       setResolvingId(null);
+      setLiveSteps([]);
     }
   };
 
@@ -339,6 +425,7 @@ export function useChatController({ activeProjectId } = {}) {
   return {
     input, setInput,
     isComputing,
+    liveSteps,
     aiIdentity,
     attachedFile, setAttachedFile,
     isUploadingAttachment,
