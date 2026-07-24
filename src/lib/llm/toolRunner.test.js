@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { makeToolRunner, MAX_ACTIONS_PER_REQUEST } from "./toolRunner.js";
+import { MAX_BULK_ITEMS_PER_CALL } from "./toolCatalog.js";
 
 describe("toolRunner: staged tools queue instead of executing", () => {
   it("pushes {action, args} onto plan and returns a queued ack", () => {
@@ -25,6 +26,39 @@ describe("toolRunner: staged tools queue instead of executing", () => {
     const result = runTool("CREATE_AREA", { title: "One too many" });
     expect(result.queued).toBe(false);
     expect(plan).toHaveLength(MAX_ACTIONS_PER_REQUEST);
+  });
+
+  // Rejected right here, at staging time — not left to surface later as a
+  // chatActions.js runtime error only once the plan actually executes on
+  // the user's device (see chatActions.js's own MAX_BULK_ITEMS_PER_CALL
+  // comment for why that was too late).
+  it("refuses to queue a BULK_CREATE over MAX_BULK_ITEMS_PER_CALL, without touching the plan", () => {
+    const plan = [];
+    const runTool = makeToolRunner({ plan, dataset: {} });
+    const items = Array.from({ length: MAX_BULK_ITEMS_PER_CALL + 1 }, (_, i) => ({ description: `Task ${i}` }));
+    const result = runTool("BULK_CREATE", { entity_type: "task", items });
+    expect(result.queued).toBe(false);
+    expect(result.error).toMatch(new RegExp(`up to ${MAX_BULK_ITEMS_PER_CALL}`));
+    expect(plan).toHaveLength(0);
+  });
+
+  it("refuses to queue a BULK_DELETE over MAX_BULK_ITEMS_PER_CALL, without touching the plan", () => {
+    const plan = [];
+    const runTool = makeToolRunner({ plan, dataset: {} });
+    const ids = Array.from({ length: MAX_BULK_ITEMS_PER_CALL + 1 }, (_, i) => `id-${i}`);
+    const result = runTool("BULK_DELETE", { entity_type: "task", ids });
+    expect(result.queued).toBe(false);
+    expect(result.error).toMatch(new RegExp(`up to ${MAX_BULK_ITEMS_PER_CALL}`));
+    expect(plan).toHaveLength(0);
+  });
+
+  it("still queues a BULK_CREATE/BULK_DELETE at exactly the limit", () => {
+    const plan = [];
+    const runTool = makeToolRunner({ plan, dataset: {} });
+    const items = Array.from({ length: MAX_BULK_ITEMS_PER_CALL }, (_, i) => ({ description: `Task ${i}` }));
+    const result = runTool("BULK_CREATE", { entity_type: "task", items });
+    expect(result.queued).toBe(true);
+    expect(plan).toHaveLength(1);
   });
 });
 

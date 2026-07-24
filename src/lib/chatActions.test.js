@@ -13,7 +13,7 @@ function makeLocalStorage() {
 }
 globalThis.localStorage = makeLocalStorage();
 
-const { executeAction, executeActionSequence, DESTRUCTIVE_ACTIONS } = await import("./chatActions.js");
+const { executeAction, executeActionSequence, stripToolLog, DESTRUCTIVE_ACTIONS } = await import("./chatActions.js");
 const { localDb } = await import("./localDb.js");
 const { writeKey, removeKey } = await import("./deviceStorage.js");
 const { VAULT_CONNECTION_KEY } = await import("./vaultConnection.js");
@@ -100,6 +100,24 @@ describe("chatActions: multi-step plans with temp_id placeholders", () => {
     const tasks = await localDb.tasks.filter({ project_id: project.id });
     expect(tasks).toHaveLength(2);
   });
+
+  it("BULK_CREATE rejects more than 5 items in one call", async () => {
+    const { toolResult: { area } } = await executeAction("CREATE_AREA", { title: "Area", description: "" });
+    const { toolResult: { project } } = await executeAction("CREATE_PROJECT", { parent_area_id: area.id, title: "Project" });
+
+    await expect(
+      executeAction("BULK_CREATE", {
+        entity_type: "task",
+        items: Array.from({ length: 6 }, (_, i) => ({ project_id: project.id, description: `Task ${i}` })),
+      })
+    ).rejects.toThrow(/up to 5/);
+  });
+
+  it("BULK_DELETE rejects more than 5 ids in one call", async () => {
+    await expect(
+      executeAction("BULK_DELETE", { entity_type: "task", ids: ["a", "b", "c", "d", "e", "f"] })
+    ).rejects.toThrow(/up to 5/);
+  });
 });
 
 describe("chatActions: destructive-action classification", () => {
@@ -141,5 +159,16 @@ describe("chatActions: WRITE_VAULT_NOTE", () => {
     expect(toolResult.vaultNote.path).toBe("Daily/2026-07-22.md");
     expect(toolResult.vaultNote.commitUrl).toBe("https://github.com/me/vault/commit/abc");
     await removeKey(VAULT_CONNECTION_KEY);
+  });
+});
+
+describe("chatActions: stripToolLog", () => {
+  it("removes the fenced tool-log block, keeping the plain-English reply after it", () => {
+    const content = '```tool-log\nplan · 4 steps across 1 area, 1 product, 1 project, 1 task\nbulk_create(5 area)\nbulk_create(10 product)\n```\nAll set. Let me know what\'s next.';
+    expect(stripToolLog(content)).toBe("All set. Let me know what's next.");
+  });
+
+  it("leaves a message with no tool-log block untouched", () => {
+    expect(stripToolLog("Just a plain reply, no plan ran.")).toBe("Just a plain reply, no plan ran.");
   });
 });

@@ -6,15 +6,15 @@ import MarketingLayout from "./MarketingLayout";
 const STEPS = [
   {
     title: "Sign in",
-    body: "Google, Microsoft, Apple, or email — whichever you'd rather use. It only unlocks Vaea Chat; organizing, editing, and bulk import all work without it.",
+    body: "Google, Microsoft, Apple, or email — whichever you'd rather use. It only unlocks Vaea Chat; organizing, editing, and bringing in a spreadsheet all work without it.",
   },
   {
-    title: "Pick where your data lives",
-    body: "On Chrome or Edge desktop, grant a folder once via the File System Access API — your areas, products, projects, and tasks are written there as real files. Elsewhere, export and import by hand. Either way, nothing is stored remotely except your Vaea Chat history.",
+    title: "Pick where your stuff lives",
+    body: "On Chrome or Edge, pick a folder on your own computer once and everything's saved there as real files you can open yourself. On another browser, you save and load a file by hand instead. Either way, nothing sits on someone else's server except your chat history with Vaea.",
   },
   {
-    title: "Tell Vaea Chat to build it out",
-    body: "Type \"/setup\" and it'll interview you for a name and a personality, then ask it to lay out your hierarchy — or hand it a spreadsheet, one CSV where each row spells out the full parent path, and it'll create areas, products, projects, and tasks in one pass.",
+    title: "Dump everything on Vaea Chat",
+    body: "Just tell it everything that's piling up and it'll figure out how to lay it all out for you — chat with it for a minute first if you want to give it a name and personality. Already have it all in a messy spreadsheet instead? Hand that over and it'll build out the whole thing in one pass.",
   },
 ];
 
@@ -28,7 +28,7 @@ export default function HowItWorksPage() {
       <div className="max-w-3xl mx-auto px-6 pt-16 sm:pt-20 pb-8">
         <p className="font-terminal text-xs uppercase tracking-widest text-muted-foreground mb-4">How it works</p>
         <h1 className="font-heading text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]">
-          From nothing to organized in three steps.
+          From overwhelmed to organized in three steps.
         </h1>
       </div>
 
@@ -47,9 +47,9 @@ export default function HowItWorksPage() {
 
         <div className="pt-8 border-t border-border">
           <p className="text-muted-foreground max-w-lg">
-            From there, it's just working — the command palette (Ctrl/Cmd+K) jumps to or acts on
-            anything, and Vaea Chat takes multi-step requests instead of you clicking through
-            each change by hand.
+            From there, it's just working — one search box jumps to or acts on anything, and
+            whenever it piles up again, just tell Vaea Chat and let it handle the whole cleanup
+            instead of you clicking through each change by hand.
           </p>
         </div>
       </div>
@@ -57,7 +57,7 @@ export default function HowItWorksPage() {
       <div className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 py-16 sm:py-20 text-center">
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold tracking-tight">
-            Ready when you are.
+            Ready to get it off your plate?
           </h2>
           <div className="mt-6">
             <Link

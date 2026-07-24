@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Bot, Sparkles, HelpCircle, Smile } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { localDb } from "@/lib/localDb";
-import { executeAction, executeActionSequence, describeToolCall, describePlan, DESTRUCTIVE_ACTIONS, NON_EXECUTABLE_ACTIONS } from "@/lib/chatActions";
+import { executeAction, executeActionSequence, describeToolCall, describePlan, stripToolLog, DESTRUCTIVE_ACTIONS, NON_EXECUTABLE_ACTIONS } from "@/lib/chatActions";
 import { loadAiIdentity, DEFAULTS as IDENTITY_DEFAULTS } from "@/lib/aiPreferences";
 import { loadAiProviderConfig, isByokConfigured } from "@/lib/aiProviderConfig";
 import { runByokChat } from "@/lib/llm/byokChat";
@@ -293,7 +293,7 @@ export function useChatController({ activeProjectId } = {}) {
 
     try {
       const conversationHistory = (chatState.messages || [])
-        .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+        .map((m) => `${m.role.toUpperCase()}: ${stripToolLog(m.content)}`)
         .join("\n");
 
       const data = await invokeAssistant({ message: userText, conversationHistory, activeProjectId });

@@ -80,7 +80,7 @@ function Footer() {
           <div>
             <Logo />
             <p className="mt-3 text-sm text-muted-foreground max-w-xs">
-              A personal workspace for organizing work, with Vaea Chat — an AI that acts on it, not just talks about it. Local-first — your data stays on your device.
+              For when there's too much going on: a personal workspace with Vaea Chat, an AI that actually handles it instead of just talking about it. Everything stays on your own device.
             </p>
           </div>
 
@@ -108,7 +108,7 @@ function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-border text-xs text-muted-foreground">
-          Vaea. Local-first, always.
+          Vaea. Your stuff stays on your device, always.
         </div>
       </div>
     </footer>

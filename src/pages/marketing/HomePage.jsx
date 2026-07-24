@@ -6,32 +6,36 @@ import MarketingLayout from "./MarketingLayout";
 const HIGHLIGHTS = [
   {
     icon: Bot,
-    title: "An AI that acts, not just answers",
-    body: "A real tool-calling agent that plans multi-step changes, then executes them against your workspace — searches the web, reads attachments, reorganizes your hierarchy.",
+    title: "Tell it what's piling up — it handles it",
+    body: "\"Archive anything I haven't touched in a month\" or \"this project's a mess, sort it out.\" Vaea Chat plans the actual changes and makes them — it doesn't just hand you another to-do about your to-dos.",
   },
   {
     icon: Fingerprint,
     title: "Give it a name and a personality",
-    body: "Vaea Chat's identity — its name, its role, its tone — is yours to write, by hand in Settings or by letting it interview you with /setup.",
+    body: "So it feels like something helping you, not one more form to fill out. Set its name, role, and tone yourself, or just chat with it for a minute and let it work out a personality that fits.",
   },
   {
     icon: Command,
-    title: "A command palette for everything",
-    body: "Ctrl/Cmd+K searches and acts on anything in the app — no hunting through menus.",
+    title: "Just start typing",
+    body: "When there's a lot going on, you shouldn't have to remember where you filed it. One search box finds it — or does it — instead of you hunting through menus.",
   },
   {
     icon: LockKeyhole,
-    title: "Local-first data",
-    body: "Your project data lives on your own device, not in a database in the cloud. Signing in only unlocks Vaea Chat.",
+    title: "Your stuff stays yours",
+    body: "No account somewhere else quietly becoming another thing to manage. It all lives on your own device — signing in only unlocks Vaea Chat.",
   },
 ];
 
 // The hero's signature visual: a real transcript shape, not a chat-bubble
-// mockup — this is what the agent actually does (plan, then a run of typed
-// tool calls, then a plain-language result), rendered in the same terminal
-// font/register the app already reserves for real command output (see
-// --font-terminal in index.css). Static, not an animation loop — it reads
-// once, correctly, rather than looping like a marketing gif.
+// mockup — this is what the agent actually does (works through a list, then
+// takes real actions, then a plain-language result), rendered in the same
+// terminal font/register the app already reserves for real command output
+// (see --font-terminal in index.css). Kept in plain English on purpose —
+// the real in-app transcript shows the literal function-style tool calls
+// (chatActions.js's describeToolCall), but that reads as code, not as
+// something a first-time, non-technical visitor should have to parse.
+// Static, not an animation loop — it reads once, correctly, rather than
+// looping like a marketing gif.
 function AgentTranscript() {
   return (
     <div className="w-full max-w-md mx-auto rounded-xl border border-border bg-card shadow-lg overflow-hidden">
@@ -43,13 +47,13 @@ function AgentTranscript() {
       </div>
       <div className="p-4 font-terminal text-[13px] leading-relaxed">
         <p className="text-foreground">
-          <span className="text-primary">{'>'}</span> tidy up Marketing, archive anything stale
+          <span className="text-primary">{'>'}</span> Marketing's a mess and I don't have time to sort it, can you clean it up
         </p>
         <div className="mt-3 space-y-1 text-muted-foreground">
-          <p>plan · reviewing 14 projects across 3 products</p>
-          <p>tool call · archive_project("Q1 Newsletter")</p>
-          <p>tool call · move_project("Landing Page Copy" → Growth)</p>
-          <p>tool call · archive_project("Old Brand Deck")</p>
+          <p>Looking through all 14 things in Marketing...</p>
+          <p>Archived "Q1 Newsletter" — nobody's touched it in 6 weeks</p>
+          <p>Moved "Landing Page Copy" over to Growth, where it belongs</p>
+          <p>Archived "Old Brand Deck"</p>
         </div>
         <p className="mt-3 text-foreground">
           Archived 2, moved 1. Marketing's down to 11 active projects —
@@ -63,7 +67,7 @@ function AgentTranscript() {
 
 export default function HomePage() {
   useEffect(() => {
-    document.title = "Vaea Chat — an AI that acts on your work";
+    document.title = "Vaea — for when you have too much going on";
   }, []);
 
   return (
@@ -72,15 +76,15 @@ export default function HomePage() {
         <div className="grid md:grid-cols-[1.15fr_1fr] gap-12 md:gap-16 items-center pb-16 sm:pb-24">
           <div>
             <p className="font-terminal text-xs uppercase tracking-widest text-primary mb-4">
-              Vaea Chat
+              For when it's all too much
             </p>
             <h1 className="font-heading text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]">
-              An AI that acts on your work, not just around it.
+              There's a lot going on. Let's make it manageable.
             </h1>
             <p className="mt-5 text-lg text-muted-foreground max-w-md">
-              Give Vaea Chat a name and a personality, then ask it to reorganize, create,
-              or clean up. It plans the steps and executes them against your real areas,
-              products, projects, and tasks — a tool-calling agent, not a search box.
+              Vaea gives every project, task, and stray "I should really deal with that"
+              one real place to live — and an AI that actually files, sorts, and cleans
+              it up when you ask, instead of one more list you have to maintain yourself.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
@@ -97,7 +101,7 @@ export default function HomePage() {
                 See how it works
               </Link>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">Data stays on your device either way.</p>
+            <p className="mt-4 text-xs text-muted-foreground">Free. Data stays on your device either way.</p>
           </div>
 
           <AgentTranscript />
@@ -107,7 +111,7 @@ export default function HomePage() {
       <div className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 py-16 sm:py-20">
           <div className="flex items-end justify-between gap-6 flex-wrap">
-            <h2 className="font-heading text-2xl font-semibold tracking-tight">Built for real work</h2>
+            <h2 className="font-heading text-2xl font-semibold tracking-tight">What that actually looks like</h2>
             <Link to="/features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               See all features →
             </Link>
@@ -131,7 +135,7 @@ export default function HomePage() {
       <div className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 py-16 sm:py-20 text-center">
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold tracking-tight">
-            Ready to see it laid out?
+            Ready to get it out of your head?
           </h2>
           <div className="mt-6">
             <Link

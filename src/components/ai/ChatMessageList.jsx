@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import ChatIcon from "@/components/ai/ChatIcon";
 import ChatToolLogDetail from "@/components/ai/ChatToolLogDetail";
@@ -57,6 +57,23 @@ function makeMarkdownComponents(toolLogDetail, onOpenDetail) {
   };
 }
 
+// One assistant message, split out so its `useMemo` can keep `components`
+// referentially stable across re-renders that don't actually change this
+// message (e.g. every keystroke in the send box re-rendering the whole
+// list). Without this, ChatMessageList.map() called makeMarkdownComponents()
+// fresh every render, handing ReactMarkdown a brand-new `code`/`pre`
+// component *type* each time — React can't reconcile a changed component
+// type in place, so it unmounted and remounted the whole rendered message
+// instead, replaying the tool-log lines' fade-in every single keystroke.
+function ChatAssistantMessage({ m, onOpenDetail }) {
+  const components = useMemo(() => makeMarkdownComponents(m.tool_log_detail, onOpenDetail), [m.tool_log_detail, onOpenDetail]);
+  return (
+    <div className="chat-message-content text-foreground">
+      <ReactMarkdown urlTransform={sanitizeUrl} components={components}>{m.content}</ReactMarkdown>
+    </div>
+  );
+}
+
 // Renders the message list. Scrolling is plain native browser scrolling —
 // lazy-loads older messages as the user scrolls near the top. Styled as a
 // flat terminal transcript (user turns prefixed "> ", tool-log lines dim,
@@ -102,9 +119,7 @@ export default function ChatMessageList({ messages, isComputing, liveSteps, icon
               <span className="text-primary">{'>'}</span> {m.content}
             </p>
           ) : (
-            <div className="chat-message-content text-foreground">
-              <ReactMarkdown urlTransform={sanitizeUrl} components={makeMarkdownComponents(m.tool_log_detail, setOpenDetail)}>{m.content}</ReactMarkdown>
-            </div>
+            <ChatAssistantMessage m={m} onOpenDetail={setOpenDetail} />
           )}
           {m.pending_action && (
             <div className="mt-1.5 flex gap-2 justify-start">

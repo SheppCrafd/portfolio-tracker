@@ -9,38 +9,38 @@ import MarketingLayout from "./MarketingLayout";
 const GROUPS = [
   {
     title: "Vaea Chat",
-    lede: "Not a chatbot that describes what to do — a tool-calling agent that actually does it, shaped into whoever you want it to be.",
+    lede: "When you don't have the bandwidth to sort through it yourself, tell it and it actually does the sorting — not a chatbot that just describes what you should do.",
     items: [
-      { icon: Bot, title: "Multi-step execution", body: "Per-action, typed tools plan and execute real changes against your workspace, not a single blind reply." },
-      { icon: Fingerprint, title: "A name and a personality it keeps", body: "Set its name, role, tone, and what it knows about how you work — by hand in Settings, or by typing \"/setup\" and letting it interview you." },
-      { icon: Search, title: "Web search", body: "Looks things up when a task needs outside information." },
-      { icon: Paperclip, title: "Attachment reading", body: "Reads files you drop into the chat as part of planning what to do." },
-      { icon: ClipboardCheck, title: "Workspace search + tidy audit", body: "Searches your own data, and can run a hygiene pass (\"/tidy\") to flag things worth cleaning up." },
+      { icon: Bot, title: "It doesn't stop at one step", body: "Ask for something bigger than one change and it breaks it into the right pieces and actually does every one of them — not one reply and a shrug." },
+      { icon: Fingerprint, title: "A name and a personality it keeps", body: "Set its name, role, and tone yourself in Settings, or just chat with it for a minute and let it work out who it should be." },
+      { icon: Search, title: "Looks things up for you", body: "If a task needs an answer it doesn't already have, it'll search the web instead of guessing." },
+      { icon: Paperclip, title: "Reads what you hand it", body: "Drop a file into the chat and it actually reads it before deciding what to do." },
+      { icon: ClipboardCheck, title: "Points out what's gone stale", body: "It can look through everything you've got and flag what hasn't been touched in a while, before it turns into another pile." },
     ],
   },
   {
     title: "Organize",
-    lede: "One structure for everything you're working on, at whatever level it actually lives at.",
+    lede: "Somewhere for every project and stray task to actually live, instead of scattered across five apps and your own memory.",
     items: [
-      { icon: Boxes, title: "Areas, products, projects, tasks", body: "A hierarchy that scales from a single project up to a full personal or team operation." },
-      { icon: LayoutGrid, title: "Mini and Full card views", body: "Switch density per screen — cards grow to fill leftover space in Full mode via a squeeze-fit layout." },
-      { icon: FolderCog, title: "Nested detail modals", body: "Open an area or product and its products/projects expand in place, not a separate page each time." },
+      { icon: Boxes, title: "Everything nests inside something bigger", body: "A big area of your life or work, broken down into smaller pieces, broken down into the actual tasks — nothing just floating on its own with no home." },
+      { icon: LayoutGrid, title: "See as much or as little as you need", body: "Zoom out for a quick scan of everything at once, or zoom in when one thing needs your full attention." },
+      { icon: FolderCog, title: "Click in without losing your place", body: "Open something bigger and what's inside it opens right there with it — no separate page to load, no hunting for your way back." },
     ],
   },
   {
     title: "Move faster",
-    lede: "Ways to get things done without hunting through menus.",
+    lede: "When you're already stretched thin, hunting through menus is the last straw — so you never have to.",
     items: [
-      { icon: Command, title: "Command palette", body: "Ctrl/Cmd+K (or just \"/\") searches every area, product, project, task, and stakeholder, or runs a quick action." },
-      { icon: FileSpreadsheet, title: "Hierarchical CSV import", body: "One spreadsheet where each row spells out the full parent path — bulk-creates the whole structure in one pass." },
+      { icon: Command, title: "One search box for everything", body: "Start typing and it finds — or does — whatever you're after, instead of you clicking through menu after menu to get there." },
+      { icon: FileSpreadsheet, title: "Already have it all in a spreadsheet?", body: "Hand it over as-is. Vaea reads how it's all supposed to nest together and builds the whole thing out in one pass, instead of you typing it all in by hand." },
     ],
   },
   {
-    title: "Your data, your device",
-    lede: "Local-first by design, not as an afterthought.",
+    title: "Your stuff, your device",
+    lede: "One less account, one less company holding your life hostage — everything happens on your own device by default, not as an afterthought.",
     items: [
-      { icon: HardDrive, title: "No browser storage for real data", body: "A folder on this device (granted once via Chrome's file access), or manual export/import elsewhere." },
-      { icon: LockKeyhole, title: "Sign-in unlocks only Vaea Chat", body: "Everything else — organizing, editing, bulk import, the command palette — works with or without signing in." },
+      { icon: HardDrive, title: "Real files, not something that just vanishes", body: "Pick a folder on your own computer once, and everything's saved there as real files you can open yourself — or save/load a file by hand if that's not an option for you." },
+      { icon: LockKeyhole, title: "Signing in only unlocks Vaea Chat", body: "Everything else — organizing, editing, bringing in a spreadsheet, searching — works whether you're signed in or not." },
     ],
   },
 ];
@@ -55,11 +55,11 @@ export default function FeaturesPage() {
       <div className="max-w-4xl mx-auto px-6 pt-16 sm:pt-20 pb-8">
         <p className="font-terminal text-xs uppercase tracking-widest text-muted-foreground mb-4">Features</p>
         <h1 className="font-heading text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]">
-          Everything your work needs, kept in one place.
+          Everything that's piling up, finally somewhere it can't get lost.
         </h1>
         <p className="mt-5 text-lg text-muted-foreground max-w-xl">
-          No pricing tiers, no seat limits to worry about — this is a personal workspace,
-          built to stay out of your way.
+          No pricing plans to compare, no limit on how much you throw at it — this is a
+          personal system built to catch everything and then get out of your way.
         </p>
       </div>
 
@@ -94,7 +94,7 @@ export default function FeaturesPage() {
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold tracking-tight">
             See it come together
           </h2>
-          <p className="mt-3 text-muted-foreground">Three steps from nothing to organized.</p>
+          <p className="mt-3 text-muted-foreground">Three steps from overwhelmed to organized.</p>
           <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
             <Link
               to="/how-it-works"

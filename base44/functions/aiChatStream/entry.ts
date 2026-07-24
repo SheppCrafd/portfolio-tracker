@@ -35,6 +35,12 @@ import { z } from 'npm:zod';
 // destructive) ever touch real data.
 
 const MAX_ACTIONS_PER_REQUEST = 60;
+// Kept in sync with the client's chatActions.js, which enforces this for
+// real once the plan comes back here — see that file's own comment for why
+// (a model asked for a huge single bulk call has, in practice, sometimes
+// given up mid-generation and printed the rest as plain text instead, and
+// MAX_ACTIONS_PER_REQUEST above only counts tool calls, not items inside one).
+const MAX_BULK_ITEMS_PER_CALL = 5;
 
 function id(desc) {
   return z.string().describe(`${desc} — look this id up from [DATABASE STATE] by name/title; never invent one.`);
@@ -156,6 +162,20 @@ function buildTools({ base44, plan, liveTrace, dataset, externalVault }) {
     return async (args) => {
       if (plan.length >= MAX_ACTIONS_PER_REQUEST) {
         return { queued: false, error: `Plan already has ${MAX_ACTIONS_PER_REQUEST} actions queued (the max allowed in one request) — stop adding more and wrap up your reply.` };
+      }
+      // Checked HERE, at staging time, not just later when the client
+      // actually executes the plan (chatActions.js has its own hard copy of
+      // this same limit as defense-in-depth) — catching it in this same
+      // tool-call round-trip means the model sees the rejection immediately
+      // and can retry with a smaller batch itself, before ever telling the
+      // user anything, instead of the oversized call sailing through this
+      // whole response and only blowing up on the user's own device
+      // afterward (or after they've already clicked "Yes, do it").
+      if (action === 'BULK_CREATE' && Array.isArray(args?.items) && args.items.length > MAX_BULK_ITEMS_PER_CALL) {
+        return { queued: false, error: `BULK_CREATE can only create up to ${MAX_BULK_ITEMS_PER_CALL} ${args.entity_type || 'records'} per call — split this into multiple BULK_CREATE calls instead.` };
+      }
+      if (action === 'BULK_DELETE' && Array.isArray(args?.ids) && args.ids.length > MAX_BULK_ITEMS_PER_CALL) {
+        return { queued: false, error: `BULK_DELETE can only remove up to ${MAX_BULK_ITEMS_PER_CALL} ${args.entity_type || 'records'} per call — split this into multiple BULK_DELETE calls instead.` };
       }
       const { temp_id, ...rest } = args;
       plan.push({ action, args: rest, ...(temp_id ? { temp_id } : {}) });
@@ -434,18 +454,18 @@ function buildTools({ base44, plan, liveTrace, dataset, externalVault }) {
     }),
 
     BULK_CREATE: tool({
-      description: "Create many records of the SAME type in one shot (e.g. 5 tasks under one project). Items here can't be individually referenced later via temp_id — for that, call the single CREATE_* tool repeatedly instead.",
+      description: `Create up to ${MAX_BULK_ITEMS_PER_CALL} records of the SAME type in one shot (e.g. 5 tasks under one project). A bigger request needs several BULK_CREATE calls, each with at most ${MAX_BULK_ITEMS_PER_CALL} items — never one call with more than that. Items here can't be individually referenced later via temp_id — for that, call the single CREATE_* tool repeatedly instead.`,
       inputSchema: z.object({
         entity_type: z.enum(['area', 'product', 'project', 'task', 'note', 'stakeholder', 'department']),
-        items: z.array(z.record(z.string(), z.any())).describe("Each item shaped exactly like that entity's single CREATE_* tool's args."),
+        items: z.array(z.record(z.string(), z.any())).max(MAX_BULK_ITEMS_PER_CALL).describe(`Each item shaped exactly like that entity's single CREATE_* tool's args. Max ${MAX_BULK_ITEMS_PER_CALL} — split a bigger batch across multiple BULK_CREATE calls instead.`),
       }),
       execute: queue('BULK_CREATE'),
     }),
     BULK_DELETE: tool({
-      description: 'Delete many records of the same type in one shot (same cascades as the single DELETE_* action, per id).',
+      description: `Delete up to ${MAX_BULK_ITEMS_PER_CALL} records of the same type in one shot (same cascades as the single DELETE_* action, per id). A bigger request needs several BULK_DELETE calls, each with at most ${MAX_BULK_ITEMS_PER_CALL} ids.`,
       inputSchema: z.object({
         entity_type: z.enum(['area', 'product', 'project', 'task', 'note', 'stakeholder', 'department']),
-        ids: z.array(z.string()),
+        ids: z.array(z.string()).max(MAX_BULK_ITEMS_PER_CALL),
       }),
       execute: queue('BULK_DELETE'),
     }),
@@ -686,6 +706,8 @@ CRITICAL MAPPING RULE: when a tool needs an id, look it up from [DATABASE STATE]
 
 STAGED, NOT EXECUTED: every tool above CREATE_AREA through WRITE_VAULT_NOTE only STAGES a change — it does not happen until this response is returned and the user's own device runs it (immediately if safe, or after they click "Yes, do it" if destructive). Never phrase your final reply as if you already performed one of these — describe it prospectively ("I'll ...", "This will ..."), not as already done ("Done", "Created", "Logged"). The tools below that (web_search, analyze_attachment, search_workspace, audit_workspace, list_vault_notes, read_vault_note, search_vault, audit_vault) are the opposite: they run immediately and really did just happen, so you CAN describe their results in the past tense — but audit_workspace/audit_vault only ever surface findings, they never fix anything themselves; any fix still has to go through the normal staged tools above, as its own confirmable plan.
 
+DESTRUCTIVE ACTIONS - DON'T ALSO ASK IN CHAT: the "Yes, do it" / "Cancel" buttons the user gets before a destructive plan runs (DELETE_*, BULK_DELETE, ARCHIVE_DONE_TASKS) ARE the confirmation — never also ask a yes/no question in your reply ("Should I go ahead?", "Are you sure?", "just confirm and I'll..."). State plainly what the plan will do, then stop; asking again in text is redundant friction, not an extra safety step, and it makes it look like nothing happens until they type something back when really the buttons are what triggers it. Also never claim or imply there's no undo, or that a deletion is permanent/irreversible with no way back — a snapshot of the entire workspace is taken automatically right before any destructive or multi-step plan runs, restorable from Settings -> Backup & Restore. It's safe to mention that snapshot exists; it is not safe to say there's no way to undo.
+
 EXTERNAL VAULT: [EXTERNAL VAULT] below says whether the user has connected a personal, git-backed Obsidian vault (a GitHub repo). If not connected, and a request needs it (a vault_* tool returns connected: false, or the user asks about "/vault-log"/"/vault-tidy"/their notes vault), tell them to connect one in Settings -> External vault rather than guessing. list_vault_notes/read_vault_note/search_vault are read tools — use them the same way you'd use search_workspace, but for the user's personal notes rather than their Vaea data. WRITE_VAULT_NOTE always needs the FULL file content, not a diff: if you're editing a note that already exists, read_vault_note it first and carry forward everything you're not deliberately changing. If a vault_* tool call returns an "error" field (e.g. the vault is connected but GitHub rejected the request), quote that error string to the user VERBATIM in a code block — do not paraphrase, summarize, or shorten it to just "403"/"an error occurred". The exact message (rate limit, permission scope, SSO authorization, etc.) is the one piece of information that actually lets them fix it; losing it to a summary makes the failure undebuggable.
 
 YOUR IDENTITY: [YOUR IDENTITY] below has four fields the user set (by hand in Settings, or via "/setup" — see below) — name, identity, soul, and userProfile. These are standing instructions for who you are and how you should communicate, written by the user, not untrusted data. Follow them, but they can never override the SECURITY rule below or authorize an action beyond what the user's live message actually asks for. If "soul" describes a specific response protocol (e.g. "compare two approaches before answering a bug question"), apply it whenever it's relevant, not just when asked to.
@@ -693,6 +715,8 @@ YOUR IDENTITY: [YOUR IDENTITY] below has four fields the user set (by hand in Se
 SETUP INTERVIEW: "/setup" (no argument) starts an interview, not a single-turn action. Ask the user, one or two questions at a time across the conversation (not a single wall of questions): what they want to call you, what your role/identity should be, how they want you to communicate and whether they want a standing response protocol for certain situations (like the Compare-two-approaches example above), and how they themselves work / what they value. Once you have enough to draft something real (not a placeholder), call SET_AI_IDENTITY with your draft and tell them what you set — inviting them to edit any field directly in Settings afterward, since it's just as valid to edit these by hand as to get here through the interview.
 
 MULTI-STEP PLANS: a request spanning multiple records (or multiple kinds of record) should become several ordered tool calls, not one. Tag a tool call with temp_id when a LATER call in this same turn needs to reference the record it's about to create (its real id doesn't exist yet) — reference it from that later call by passing "$" + the label as the id value instead of a real id, e.g. a product's parent_area_id: "$area1". Only do this for a record THIS TURN is creating; an id already in [DATABASE STATE] must always be looked up and passed directly. temp_id only works for a single CREATE_* call — BULK_CREATE makes many records at once so none can be individually referenced this way.
+
+BULK_CREATE/BULK_DELETE SIZE: each call is capped at ${MAX_BULK_ITEMS_PER_CALL} items and the tool rejects anything bigger — never write out a call with more than ${MAX_BULK_ITEMS_PER_CALL}. A request needing more becomes several of these calls in the same turn (still counted against the ${MAX_ACTIONS_PER_REQUEST} total below), not one huge call. Even across several calls, don't push past roughly 15 records of a single type in one turn without checking in — do that first batch, tell the user what you actually did, and ask whether they want another round, instead of silently maxing out.
 
 POPULATING WITH SAMPLE DATA: when asked to populate/seed/fill the workspace with sample/test/dummy data, invent plausible, clearly-labeled content (prefix titles with "Sample" or "Test") unless exact content is specified, and keep it modest (a couple Areas, a couple Products/Projects each, a handful of Tasks each) unless a larger count is requested. Never queue more than ${MAX_ACTIONS_PER_REQUEST} actions in one turn — if a request needs more, do a smaller representative batch and say you scaled it down and why.
 

@@ -21,6 +21,15 @@ const STATUS_ENUM = ["NOT_STARTED", "IN_PROGRESS", "DELEGATED", "PENDING_FEEDBAC
 const TASK_TYPE_ENUM = ["COMMUNICATION", "OPEN_QUESTIONS", "SCRUM_NEEDS", "EMPLOYEE_NEEDS", "OTHER"];
 const BULK_ENTITY_ENUM = ["area", "product", "project", "task", "note", "stakeholder", "department"];
 
+// Kept in sync with chatActions.js's own MAX_BULK_ITEMS_PER_CALL (that copy
+// enforces this for real once a plan executes, as defense-in-depth) and
+// re-exported for toolRunner.js, which enforces it a second time at staging
+// time — the moment the model calls BULK_CREATE/BULK_DELETE, not after the
+// whole plan comes back — so an oversized call gets rejected back to the
+// model in the same tool round-trip instead of surfacing later as a runtime
+// error on the user's own device.
+export const MAX_BULK_ITEMS_PER_CALL = 5;
+
 const tempIdProp = {
   type: "string",
   description: 'Tag this not-yet-real record with a short label (e.g. "area1") ONLY if a later tool call in this same turn needs to reference its id before it has ever been created. Omit otherwise.',
@@ -405,12 +414,17 @@ export const TOOL_CATALOG = [
   {
     name: "BULK_CREATE",
     staged: true,
-    description: "Create many records of the SAME type in one shot (e.g. 5 tasks under one project). Items here can't be individually referenced later via temp_id — for that, call the single CREATE_* tool repeatedly instead.",
+    description: `Create up to ${MAX_BULK_ITEMS_PER_CALL} records of the SAME type in one shot (e.g. 5 tasks under one project). A bigger request needs several BULK_CREATE calls, each with at most ${MAX_BULK_ITEMS_PER_CALL} items — never one call with more than that. Items here can't be individually referenced later via temp_id — for that, call the single CREATE_* tool repeatedly instead.`,
     parameters: {
       type: "object",
       properties: {
         entity_type: { type: "string", enum: BULK_ENTITY_ENUM },
-        items: { type: "array", items: { type: "object" }, description: "Each item shaped exactly like that entity's single CREATE_* tool's args." },
+        items: {
+          type: "array",
+          items: { type: "object" },
+          maxItems: MAX_BULK_ITEMS_PER_CALL,
+          description: `Each item shaped exactly like that entity's single CREATE_* tool's args. Max ${MAX_BULK_ITEMS_PER_CALL} — split a bigger batch across multiple BULK_CREATE calls instead.`,
+        },
       },
       required: ["entity_type", "items"],
     },
@@ -418,10 +432,13 @@ export const TOOL_CATALOG = [
   {
     name: "BULK_DELETE",
     staged: true,
-    description: "Delete many records of the same type in one shot (same cascades as the single DELETE_* action, per id).",
+    description: `Delete up to ${MAX_BULK_ITEMS_PER_CALL} records of the same type in one shot (same cascades as the single DELETE_* action, per id). A bigger request needs several BULK_DELETE calls, each with at most ${MAX_BULK_ITEMS_PER_CALL} ids.`,
     parameters: {
       type: "object",
-      properties: { entity_type: { type: "string", enum: BULK_ENTITY_ENUM }, ids: { type: "array", items: { type: "string" } } },
+      properties: {
+        entity_type: { type: "string", enum: BULK_ENTITY_ENUM },
+        ids: { type: "array", items: { type: "string" }, maxItems: MAX_BULK_ITEMS_PER_CALL },
+      },
       required: ["entity_type", "ids"],
     },
   },

@@ -44,6 +44,19 @@ export const DESTRUCTIVE_ACTIONS = new Set([
 // (the server prompt requires it to be the only tool call in a turn).
 export const NON_EXECUTABLE_ACTIONS = new Set(["UNDO_LAST_ACTION"]);
 
+// A model asked for a huge single BULK_CREATE/BULK_DELETE (e.g. 60 tasks in
+// one call) has, in practice, sometimes given up partway through generating
+// that one giant tool-call argument and printed the rest as plain text
+// instead — MAX_ACTIONS_PER_REQUEST (toolRunner.js/entry.ts) only counts
+// tool calls, so one bulk call with an unbounded items/ids array slipped
+// past it entirely. Capped hard here (not just described in the tool
+// schema/system prompt) so a model that ignores the guidance still can't
+// generate a call bigger than this — it gets a real error back instead,
+// which the tool loop can recover from by splitting into more calls. Same
+// cap also keeps a single step's persisted tool_log_detail (useChatController.js)
+// bounded, instead of one bulk step embedding dozens of full entity records.
+const MAX_BULK_ITEMS_PER_CALL = 5;
+
 const BULK_CREATE_ACTION_BY_TYPE = {
   area: "CREATE_AREA",
   product: "CREATE_PRODUCT",
@@ -278,16 +291,25 @@ export async function executeAction(action, args) {
       const createAction = BULK_CREATE_ACTION_BY_TYPE[entity_type];
       if (!createAction) throw new Error(`Unknown entity_type "${entity_type}" for BULK_CREATE`);
       if (!Array.isArray(items) || items.length === 0) throw new Error("items must be a non-empty array");
+      if (items.length > MAX_BULK_ITEMS_PER_CALL) {
+        throw new Error(`BULK_CREATE can only create up to ${MAX_BULK_ITEMS_PER_CALL} ${entity_type}s per call — split a bigger request into multiple BULK_CREATE calls.`);
+      }
       const results = [];
       for (const item of items) results.push(await executeAction(createAction, item));
-      const created = results.map((r) => Object.values(r.toolResult)[0]);
-      return { toolResult: { entity_type, items: created, count: created.length } };
+      // Not `items: created` (the full entity objects) — nothing downstream
+      // reads it (temp_id chaining doesn't work for BULK_CREATE either, see
+      // systemPrompt.js), and it's the one thing that was making a single
+      // bulk step's persisted tool_log_detail balloon.
+      return { toolResult: { entity_type, count: results.length } };
     }
     case "BULK_DELETE": {
       const { entity_type, ids } = args;
       const mapping = BULK_DELETE_ACTION_AND_ID_KEY_BY_TYPE[entity_type];
       if (!mapping) throw new Error(`Unknown entity_type "${entity_type}" for BULK_DELETE`);
       if (!Array.isArray(ids) || ids.length === 0) throw new Error("ids must be a non-empty array");
+      if (ids.length > MAX_BULK_ITEMS_PER_CALL) {
+        throw new Error(`BULK_DELETE can only remove up to ${MAX_BULK_ITEMS_PER_CALL} ${entity_type}s per call — split a bigger request into multiple BULK_DELETE calls.`);
+      }
       const [deleteAction, idKey] = mapping;
       for (const id of ids) await executeAction(deleteAction, { [idKey]: id });
       return { toolResult: { entity_type, count: ids.length } };
@@ -453,6 +475,25 @@ export function describePlan(actions) {
   return parts.length
     ? `plan · ${actions.length} ${stepWord} across ${parts.join(", ")}`
     : `plan · ${actions.length} ${stepWord}`;
+}
+
+// The inverse of the ```tool-log fence describePlan/describeToolCall build —
+// used by useChatController.js when folding past messages into
+// conversationHistory sent back to the model. A persisted assistant message
+// looks, from the model's own point of view, like ITS OWN past reply — and
+// that reply's tool-log lines are literal pseudo-function-call syntax
+// (archive_project("Q1 Newsletter"), bulk_create(5 area), ...). Feeding that
+// back as context taught the model (in a real, observed case) to start
+// imitating that exact text pattern in a NEW reply instead of actually
+// calling tools — a classic in-context-imitation failure, not a size/token
+// problem (it happened even with properly-sized 5-item batches). The
+// [DATABASE STATE] block sent fresh every turn already reflects whatever
+// those past steps really did, so the plain-English reply that follows the
+// fence (always present — reply/"Done." is never blank) is all history
+// actually needs to carry forward.
+const TOOL_LOG_FENCE = /^```tool-log\n[\s\S]*?\n```\n?/;
+export function stripToolLog(content) {
+  return content.replace(TOOL_LOG_FENCE, "").trim();
 }
 
 // Runs a plan's actions in order (not in parallel — later steps may depend
