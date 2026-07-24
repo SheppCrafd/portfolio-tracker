@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export default function UserMenu() {
   return (
     <Button variant="outline" size="icon" asChild aria-label="Settings">
-      <Link to="/settings">
+      <Link to="/app/settings">
         <Settings className="w-4 h-4" />
       </Link>
     </Button>

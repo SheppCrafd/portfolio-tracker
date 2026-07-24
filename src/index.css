@@ -154,15 +154,22 @@
     @apply border-border outline-ring/50;
   }
 
-  /* This is a fixed app shell (AppShell.jsx is h-screen + overflow-hidden,
-     with each panel scrolling internally via its own overflow-y-auto) — the
-     outer page itself must never scroll. Without this, a single stray pixel
-     of layout drift anywhere (sub-pixel rounding, a font metric, whatever)
-     is enough to make html/body scrollable even though the app still looks
-     perfectly framed, since AppShell's own overflow-hidden only clips its
-     own content, not the page around it. */
   html, body, #root {
     height: 100%;
+  }
+
+  /* The authenticated app (/app/*) is a fixed shell (AppShell.jsx is
+     h-screen + overflow-hidden, with each panel scrolling internally via
+     its own overflow-y-auto) — its outer page must never scroll. Without
+     this, a single stray pixel of layout drift anywhere (sub-pixel
+     rounding, a font metric, whatever) is enough to make html/body
+     scrollable even though the app still looks perfectly framed, since
+     AppShell's own overflow-hidden only clips its own content, not the
+     page around it. Scoped to this class (toggled on <html> by
+     AuthenticatedApp in App.jsx while mounted) rather than applied
+     globally — the public marketing pages are normal tall documents that
+     need to scroll like any other web page. */
+  html.app-shell-locked, html.app-shell-locked body, html.app-shell-locked #root {
     overflow: hidden;
   }
 

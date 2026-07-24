@@ -1,15 +1,19 @@
 import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 
-// Shown whenever AuthContext reports auth_required — replaces the old
-// auto-redirect-to-Base44's-hosted-/login flow. That page route only gets a
-// real hosted login form for apps built through Base44's own builder UI;
-// Vaea is a custom Vite build deployed via `site deploy`, so `/login` just
-// reloads this SPA instead, which redirected again, forever (see
-// Decisions/Vaea - Full-App Login Gate Restored.md in the vault). These
+// Rendered at the real, linkable /login route (src/pages/marketing/LoginPage.jsx)
+// — replaces the old auto-redirect-to-Base44's-hosted-/login flow. That page
+// route only gets a real hosted login form for apps built through Base44's
+// own builder UI; Vaea is a custom Vite build deployed via `site deploy`, so
+// `/login` just reloads this SPA instead, which redirected again, forever
+// (see Decisions/Vaea - Full-App Login Gate Restored.md in the vault). These
 // provider/email calls hit real Base44 API routes instead
 // (/api/apps/auth/.../login), which work regardless of how the app is
-// hosted.
+// hosted. `?from=` carries the originally-requested path when
+// AuthenticatedApp redirects here for an unauthenticated deep link (App.jsx)
+// — falls back to /app (the dashboard) when reached directly, e.g. from the
+// marketing nav's own "Log in" button.
 const PROVIDERS = [
   { key: "google", label: "Continue with Google" },
   { key: "microsoft", label: "Continue with Microsoft" },
@@ -21,8 +25,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [searchParams] = useSearchParams();
 
-  const returnTo = window.location.pathname + window.location.search;
+  const returnTo = searchParams.get("from") || "/app";
 
   const handleProvider = (provider) => {
     setError("");
@@ -42,10 +47,12 @@ export default function LoginScreen() {
       // localStorage) but nothing here re-reads it — appParams.token is a
       // one-time snapshot taken at module load (see app-params.js), and the
       // AuthContext/base44Client singletons were built from that snapshot.
-      // A reload re-evaluates everything from the now-persisted token, the
-      // same way returning from an OAuth redirect already does.
+      // A full navigation to returnTo re-evaluates everything from the
+      // now-persisted token, the same way returning from an OAuth redirect
+      // already does — window.location.href (not react-router's navigate)
+      // specifically because that fresh evaluation needs a real reload.
       await base44.auth.loginViaEmailPassword(email, password);
-      window.location.reload();
+      window.location.href = returnTo;
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Couldn't sign in — check your email and password.");
       setSubmitting(false);
@@ -53,7 +60,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-16">
       <div className="max-w-sm w-full space-y-5">
         <div className="text-center space-y-3">
           {/* Placeholder mark until there's a real logo — swap the src below when there is one.
@@ -118,6 +125,10 @@ export default function LoginScreen() {
         </form>
 
         {error && <p className="text-xs text-destructive text-center">{error}</p>}
+
+        <p className="text-center text-xs text-muted-foreground">
+          <Link to="/" className="underline hover:text-foreground transition-colors">Back to home</Link>
+        </p>
       </div>
     </div>
   );

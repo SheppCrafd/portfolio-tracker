@@ -5,9 +5,9 @@ import { useAppStore } from "@/lib/store";
 import UserMenu from "@/components/layout/UserMenu";
 
 const TABS = [
-  { key: "dashboard", label: "Dashboard", to: "/", Icon: LayoutDashboard, isActive: (path) => path === "/" },
-  { key: "chat", label: "Chat", to: "/chat", Icon: MessageCircle, isActive: (path) => path.startsWith("/chat") },
-  { key: "settings", label: "Settings", to: "/settings", Icon: SettingsIcon, isActive: (path) => path.startsWith("/settings") },
+  { key: "dashboard", label: "Dashboard", to: "/app", Icon: LayoutDashboard, isActive: (path) => path === "/app" },
+  { key: "chat", label: "Chat", to: "/app/chat", Icon: MessageCircle, isActive: (path) => path.startsWith("/app/chat") },
+  { key: "settings", label: "Settings", to: "/app/settings", Icon: SettingsIcon, isActive: (path) => path.startsWith("/app/settings") },
 ];
 
 // Rendered once, above every route (App.jsx) — purely app-level chrome:
@@ -43,7 +43,7 @@ export default function Header() {
     closeTab(tab.key);
     if (isActiveTab) {
       const remaining = openTabs.filter((t) => t.key !== tab.key);
-      navigate(remaining[0]?.to || "/");
+      navigate(remaining[0]?.to || "/app");
     }
   };
 

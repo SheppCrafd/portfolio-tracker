@@ -24,8 +24,8 @@ const MAX_RESULTS = 8;
 // Product, Project, Task, and Stakeholder in the local dataset, or run a
 // handful of quick actions, without hunting through three nested card
 // levels or opening a form by hand. Mounted once at the App.jsx level (not
-// inside AppShell) so the shortcut works from /chat and /settings too, not
-// just the dashboard route.
+// inside AppShell) so the shortcut works from /app/chat and /app/settings
+// too, not just the dashboard route.
 export default function CommandPalette() {
   const isOpen = useAppStore((s) => s.isCommandPaletteOpen);
   const openPalette = useAppStore((s) => s.openCommandPalette);
@@ -91,10 +91,10 @@ export default function CommandPalette() {
   }, [isOpen]);
 
   const quickActions = useMemo(() => [
-    { key: "create-task", label: "Create Task", Icon: Plus, run: () => { openCreateModal("task"); navigate("/"); } },
-    { key: "create-project", label: "Create Project", Icon: Plus, run: () => { openCreateModal("project"); navigate("/"); } },
-    { key: "create-product", label: "Create Product", Icon: Plus, run: () => { openCreateModal("product"); navigate("/"); } },
-    { key: "create-area", label: "Create Area", Icon: Plus, run: () => { openCreateModal("area"); navigate("/"); } },
+    { key: "create-task", label: "Create Task", Icon: Plus, run: () => { openCreateModal("task"); navigate("/app"); } },
+    { key: "create-project", label: "Create Project", Icon: Plus, run: () => { openCreateModal("project"); navigate("/app"); } },
+    { key: "create-product", label: "Create Product", Icon: Plus, run: () => { openCreateModal("product"); navigate("/app"); } },
+    { key: "create-area", label: "Create Area", Icon: Plus, run: () => { openCreateModal("area"); navigate("/app"); } },
     // url set (not just run) on the two that are real, plain routes with
     // nothing else to set up first — that's what makes Ctrl/Cmd+Enter or
     // Ctrl/Cmd+click able to open them in a new tab below. The create-*
@@ -102,8 +102,8 @@ export default function CommandPalette() {
     // opens a modal via in-memory store state, not a route; the theme is a
     // preference, not a page) so the modifier is a no-op for those — they
     // just run normally either way.
-    { key: "open-chat", label: "Open full-page chat", Icon: MessageCircle, url: "/chat", run: () => navigate("/chat") },
-    { key: "open-settings", label: "Open Settings", Icon: Settings, url: "/settings", run: () => navigate("/settings") },
+    { key: "open-chat", label: "Open full-page chat", Icon: MessageCircle, url: "/app/chat", run: () => navigate("/app/chat") },
+    { key: "open-settings", label: "Open Settings", Icon: Settings, url: "/app/settings", run: () => navigate("/app/settings") },
     { key: "toggle-theme", label: resolvedTheme === "dark" ? "Switch to light theme" : "Switch to dark theme", Icon: SunMoon, run: () => setTheme(resolvedTheme === "dark" ? "light" : "dark") },
   ], [openCreateModal, navigate, resolvedTheme, setTheme]);
 
@@ -114,12 +114,12 @@ export default function CommandPalette() {
   // meaningful to open in a second tab) — same-tab only, always.
   const resolveUrl = (item) => {
     switch (item.type) {
-      case "area": return `/?${new URLSearchParams({ areaId: item.id })}`;
-      case "product": return `/?${new URLSearchParams({ productId: item.id })}`;
-      case "project": return `/?${new URLSearchParams({ projectId: item.id })}`;
+      case "area": return `/app?${new URLSearchParams({ areaId: item.id })}`;
+      case "product": return `/app?${new URLSearchParams({ productId: item.id })}`;
+      case "project": return `/app?${new URLSearchParams({ projectId: item.id })}`;
       // No standalone task view exists — its parent project's expand modal,
       // embedding the task table, is the closest real "open" state.
-      case "task": return item.projectId ? `/?${new URLSearchParams({ projectId: item.projectId })}` : null;
+      case "task": return item.projectId ? `/app?${new URLSearchParams({ projectId: item.projectId })}` : null;
       default: return null;
     }
   };
@@ -129,7 +129,7 @@ export default function CommandPalette() {
       // Best-effort default: light up the projects they're on, the same
       // category clicking their sidebar row's "Projects" checkbox does.
       toggleHighlight(item.id, "projects");
-      navigate("/");
+      navigate("/app");
       return;
     }
     const url = resolveUrl(item);

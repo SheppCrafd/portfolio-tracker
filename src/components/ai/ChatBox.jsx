@@ -109,7 +109,7 @@ export default function ChatBox({ activeProjectId }) {
                 <Settings className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => navigate("/chat")}
+                onClick={() => navigate("/app/chat")}
                 aria-label="Expand to full page"
                 title="Expand to full page"
                 className="text-primary-foreground/80 hover:text-primary-foreground transition-colors"
