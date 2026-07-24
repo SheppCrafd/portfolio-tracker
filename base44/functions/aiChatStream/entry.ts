@@ -100,13 +100,26 @@ function vaultNotConnected() {
 async function githubFetch(url, token, init) {
   const res = await fetch(url, { ...init, headers: githubHeaders(token, init?.headers) });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    // Keep the status code, GitHub's own message, and (when present) its
-    // documentation_url — a 403's message/link usually names the exact
-    // missing permission or rate-limit reason. A bare "GitHub error (403)"
-    // is undebuggable; this is the one place that detail either survives
-    // or gets lost before it ever reaches the model's reply.
-    const parts = [`GitHub error ${res.status}`, body.message, body.documentation_url].filter(Boolean);
+    // Read as text first, not res.json() directly — a real GitHub API error
+    // is always {message, documentation_url} JSON, but an edge/WAF block (or
+    // a platform-level egress block, neither of which is GitHub's own API
+    // answering) typically comes back as an HTML challenge page or plain
+    // text instead. A bare "GitHub error 403" with no message at all is the
+    // symptom of exactly that — falling back to a slice of the raw body
+    // instead of silently swallowing it is what tells the two cases apart.
+    const rawText = await res.text().catch(() => "");
+    let body = {};
+    try {
+      body = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      // not JSON — rawText itself becomes the fallback detail below
+    }
+    const parts = [
+      `GitHub error ${res.status}`,
+      body.message,
+      body.documentation_url,
+      !body.message && rawText ? `raw response: ${rawText.slice(0, 300)}` : null,
+    ].filter(Boolean);
     throw new Error(parts.join(" — "));
   }
   return res.json();
